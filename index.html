@@ -237,9 +237,36 @@ ul.plain li { padding: var(--space-2) 0; border-bottom: 1px solid var(--brand-su
 .sidenav .tag.today { background: var(--brand-primary); color: var(--brand-on-primary); }
 .sidenav .tag.past { opacity: .6; }
 
+/* preview gate (the site is behind the same Firebase sign-in as the CMS until launch) */
+.gate { position: fixed; inset: 0; background: var(--brand-surface-soft); display: grid; place-items: center; z-index: 200; padding: var(--space-4); }
+.gate[hidden] { display: none; }
+.gate .box { background: var(--brand-surface); border-radius: var(--radius-card); padding: var(--space-8); width: min(380px, 92vw); box-sizing: border-box; }
+.gate h2 { margin-top: 0; }
+.gate form { display: flex; flex-direction: column; gap: var(--space-3); }
+.gate .fld { display: flex; flex-direction: column; gap: var(--space-1); font-weight: 600; font-size: var(--fs-small); }
+.gate input { font: inherit; padding: .55em .7em; border: 1px solid var(--brand-surface-soft); border-radius: 8px; }
+.gate .linkish { background: none; border: 0; color: var(--brand-primary); cursor: pointer; font: inherit; text-decoration: underline; padding: 0; align-self: flex-start; }
+.gate .gmsg { font-size: var(--fs-small); color: var(--brand-text-soft, inherit); min-height: 1.2em; margin-top: var(--space-3); }
+.site-header .signout { background: none; border: 0; color: inherit; opacity: .6; cursor: pointer; font: inherit; font-size: var(--fs-small); text-decoration: underline; margin-left: var(--space-3); }
+.site-header .signout[hidden] { display: none; }
+
 </style>
 </head>
 <body>
+<div class="gate" id="gate" data-state="loading">
+  <div class="box">
+    <h2>Walk With Serbia · preview</h2>
+    <p class="faint">The site is not public yet. Sign in with your editorial account.</p>
+    <form id="gateForm" hidden novalidate>
+      <label class="fld">Email<input id="gEmail" type="email" autocomplete="username" required></label>
+      <label class="fld">Password<input id="gPass" type="password" autocomplete="current-password" required></label>
+      <button class="button primary" id="gSubmit" type="submit">Sign in</button>
+      <button class="linkish" id="gForgot" type="button">Forgot password</button>
+    </form>
+    <div id="gateDenied" hidden><button class="button" data-signout type="button">Sign out</button></div>
+    <div class="gmsg" id="gateMsg" role="status">Loading…</div>
+  </div>
+</div>
 <header class="site-header"><nav>
   <a href="#/" class="brand" data-nav="home">Walk With Serbia</a>
   <a href="#/" data-nav="home">Home</a>
@@ -248,6 +275,7 @@ ul.plain li { padding: var(--space-2) 0; border-bottom: 1px solid var(--brand-su
   <a href="#/press" data-nav="press">Press kit</a>
   <span class="spacer"></span>
   <a href="#/press" class="button primary small" id="ctaTop">Press kit</a>
+  <button class="linkish signout" data-signout type="button" hidden title="Sign out of the preview">Sign out</button>
 </nav></header>
 <div class="layout">
   <nav class="sidenav" id="sidenav" aria-label="Sections"><p class="empty">Loading…</p></nav>
@@ -274,6 +302,7 @@ window.WWS_FIREBASE = {"emulator": {"apiKey": "demo-key", "projectId": "demo-wws
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getFirestore, connectFirestoreEmulator, collection, getDocs, query, where, doc, getDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { getAuth, connectAuthEmulator, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 
 // ---- social-links.js (shared, inlined by build-site.py) ----
 // Social-media link parser shared by the CMS (browser) and the Node scripts (seed, topics).
@@ -376,16 +405,20 @@ function loadEmbedScript(platform) {
 
 
 // ---- app.js ----
-// Walk With Serbia — public single-page app. Reads published content from Firestore without sign-in
-// (Firestore rules: visitors read posts with status == 'published', cities, people, active topics, settings).
+// Walk With Serbia — single-page site. Until launch it sits behind the same Firebase sign-in as the CMS (operator decision
+// 1 Oct 2026): a visitor needs an active profile (admin or member); Firestore rules allow content reads to members only.
+// The page reads published posts, cities, people, active topics, walks, press and settings as the signed-in user.
 // Static texts (home, press kit, route) come from window.WWS_SITE (site.json + pages/*.md, inlined by build-site.py).
 // build-site.py inlines social-links.js above this file (parseSocialUrl, embedHtml, loadEmbedScript, PLATFORMS).
+
 
 
 
 const SITE = window.WWS_SITE, CFGS = window.WWS_FIREBASE || {};
 const local = ['localhost', '127.0.0.1'].includes(location.hostname) && !new URLSearchParams(location.search).has('prod');
 const CFG = CFGS[local ? 'emulator' : 'prod'];
+const app = CFG ? initializeApp(CFG) : null, auth = app ? getAuth(app) : null, db = app ? getFirestore(app) : null;
+if (app && local) { connectAuthEmulator(auth, `http://${CFG.emulatorHost}:${CFG.authPort}`, { disableWarnings: true }); connectFirestoreEmulator(db, CFG.emulatorHost, CFG.firestorePort); }
 const $ = s => document.querySelector(s);
 const whoName = p => p.handle ? '@' + p.handle : (p.name || p.slug);
 const safe = u => /^https?:\/\//i.test(String(u || '')) ? String(u) : '';   // only http(s) in src/href; never javascript:/data:
@@ -410,15 +443,14 @@ const restDoc = d => ({ id: d.name.split('/').pop(), data: () => Object.fromEntr
 async function loadRest() {
   const base = local ? `http://${CFG.emulatorHost}:${CFG.firestorePort}/v1/projects/${CFG.projectId}/databases/(default)/documents` : `https://firestore.googleapis.com/v1/projects/${CFG.projectId}/databases/(default)/documents`;
   const key = local ? '' : `?key=${CFG.apiKey}`;
-  const list = async col => { const r = await fetch(`${base}/${col}${key}${key ? '&' : '?'}pageSize=500`); const j = await r.json(); if (j.error) throw new Error(j.error.message); return (j.documents || []).map(restDoc); };
-  const q = async (col, field, value) => { const r = await fetch(`${base}:runQuery${key}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: col }], where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: { stringValue: value } } }, limit: 500 } }) }); const j = await r.json(); if (j.error) throw new Error(j.error.message); return j.filter(x => x.document).map(x => restDoc(x.document)); };
-  const one = async path => { const r = await fetch(`${base}/${path}${key}`); const j = await r.json(); return j.error ? { exists: () => false, data: () => ({}) } : restDoc(j); };
+  const H = { authorization: 'Bearer ' + await auth.currentUser.getIdToken() };   // the rules allow reads to signed-in members only
+  const list = async col => { const r = await fetch(`${base}/${col}${key}${key ? '&' : '?'}pageSize=500`, { headers: H }); const j = await r.json(); if (j.error) throw new Error(j.error.message); return (j.documents || []).map(restDoc); };
+  const q = async (col, field, value) => { const r = await fetch(`${base}:runQuery${key}`, { method: 'POST', headers: { 'content-type': 'application/json', ...H }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: col }], where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: { stringValue: value } } }, limit: 500 } }) }); const j = await r.json(); if (j.error) throw new Error(j.error.message); return j.filter(x => x.document).map(x => restDoc(x.document)); };
+  const one = async path => { const r = await fetch(`${base}/${path}${key}`, { headers: H }); const j = await r.json(); return j.error ? { exists: () => false, data: () => ({}) } : restDoc(j); };
   const [ps, cs, pe, ts, st, pr, wk] = await Promise.all([q('posts', 'status', 'published'), list('cities'), list('people'), q('topics', 'status', 'active'), one('settings/site'), list('press').catch(e => { console.warn('press not readable (rules not published?):', e.message); return []; }), list('walks').catch(() => [])]);
   return { ps: { docs: ps }, cs: { docs: cs }, pe: { docs: pe }, ts: { docs: ts }, st, pr: { docs: pr }, wk: { docs: wk } };
 }
 async function loadSdk() {
-  const app = initializeApp(CFG); const db = getFirestore(app);
-  if (local) connectFirestoreEmulator(db, CFG.emulatorHost, CFG.firestorePort);
   const [ps, cs, pe, ts, st, pr, wk] = await Promise.all([
     getDocs(query(collection(db, 'posts'), where('status', '==', 'published'))),
     getDocs(collection(db, 'cities')), getDocs(collection(db, 'people')),
@@ -730,14 +762,45 @@ const chatOpen = v => { $('#chat').classList.toggle('open', v); document.querySe
 $('#chatToggle').onclick = () => chatOpen(!$('#chat').classList.contains('open'));
 $('#footer').innerHTML = `<p><strong>${esc(SITE.name)}</strong> · ${esc(SITE.domestic)}</p><p>${esc(SITE.license)}</p><p>Media: <a href="mailto:${esc(SITE.media_contact.email)}">${esc(SITE.media_contact.email)}</a> · daily press drop ${esc(SITE.press_time)}</p><p><a href="${esc(SITE.movement_site)}">studenti.org.rs</a> · ${esc(SITE.hashtag)}</p>`;
 
-(async () => {
+// ── preview gate ──
+const gate = $('#gate'), gateMsg = $('#gateMsg');
+const showGate = (state, text) => { gate.hidden = false; gate.dataset.state = state; $('#gateForm').hidden = state !== 'login'; $('#gateDenied').hidden = state !== 'denied'; gateMsg.textContent = text || (state === 'login' ? '' : 'Loading…'); };
+$('#gateForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = $('#gEmail').value.trim(), pw = $('#gPass').value;
+  if (!email || !pw) { gateMsg.textContent = 'Enter your email and password.'; return; }
+  $('#gSubmit').disabled = true; gateMsg.textContent = 'Signing in…';
+  try { await signInWithEmailAndPassword(auth, email, pw); }
+  catch (err) { gateMsg.textContent = /invalid|wrong|not-found|credential/i.test(err.code || '') ? 'Wrong email or password.' : err.code === 'auth/too-many-requests' ? 'Too many attempts: wait a few minutes or reset the password.' : 'Sign-in failed: ' + (err.code || err.message); }
+  finally { $('#gSubmit').disabled = false; }
+});
+$('#gForgot').addEventListener('click', async () => {
+  const email = $('#gEmail').value.trim();
+  if (!email) { gateMsg.textContent = 'Type your email, then click "Forgot password".'; return; }
+  try { await sendPasswordResetEmail(auth, email); gateMsg.textContent = 'If the account exists, a password-reset email is on its way.'; }
+  catch (err) { gateMsg.textContent = 'Could not send the email: ' + err.code; }
+});
+document.querySelectorAll('[data-signout]').forEach(b => b.addEventListener('click', () => signOut(auth)));
+let started = false;
+if (!auth) { showGate('denied', 'The site is not connected to its database yet (no Firebase config for this environment).'); }
+else onAuthStateChanged(auth, async user => {
+  if (!user) { if (started) { location.reload(); return; } showGate('login'); return; }
+  showGate('loading', `Signed in as ${user.email}. Checking access…`);
+  let prof = null;
+  try { const snap = await getDoc(doc(db, 'profiles', user.uid)); prof = snap.exists() ? snap.data() : null; }
+  catch (err) { showGate('denied', 'Could not check your access: ' + (err.code || err.message)); return; }
+  if (!prof || prof.active !== true) { showGate('denied', `Signed in as ${user.email}, but this account has no access to the preview. Ask the team.`); return; }
+  gateMsg.textContent = 'Loading…'; started = true; gate.hidden = true; document.querySelector('.site-header .signout').hidden = false;
+  boot();
+});
+async function boot() {
   if (!await load()) return;
   const tg = D.settings.telegram || SITE.telegram || '';
   $('#tgLink').href = tg ? (tg.startsWith('http') ? tg : `https://t.me/${tg.replace(/^@/, '')}`) : '#';
   if (!tg) { $('#tgLink').textContent = 'Email the team'; $('#tgLink').href = `mailto:${SITE.media_contact.email}`; $('#chat .panel p.faint').textContent = 'The Telegram line opens on launch day. Until then, write to the team by email: questions about a walk, footage to send, a request from a newsroom.'; }
   $('#tgHours').textContent = `Operators answer in English, from ${SITE.press_time}; during the march within the hour.`;
   window.addEventListener('hashchange', route); route(); locate();
-})();
+}
 
 </script>
 </body>
