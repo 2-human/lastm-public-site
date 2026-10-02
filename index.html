@@ -777,7 +777,7 @@ $('#gateForm').addEventListener('submit', async e => {
 $('#gForgot').addEventListener('click', async () => {
   const email = $('#gEmail').value.trim();
   if (!email) { gateMsg.textContent = 'Type your email, then click "Forgot password".'; return; }
-  try { await sendPasswordResetEmail(auth, email); gateMsg.textContent = 'If the account exists, a password-reset email is on its way.'; }
+  try { await sendPasswordResetEmail(auth, email, { url: location.origin + location.pathname, handleCodeInApp: false }); gateMsg.textContent = 'If the account exists, a password-reset email is on its way.'; }
   catch (err) { gateMsg.textContent = 'Could not send the email: ' + err.code; }
 });
 document.querySelectorAll('[data-signout]').forEach(b => b.addEventListener('click', () => signOut(auth)));

@@ -754,6 +754,7 @@ const items = {
   // ── korisnici ──
   nuEmail: e('Email novog korisnika', 'Email sa kojim će se urednik prijavljivati.', 'Mala slova, regex provera; postojeći profil → greška (ili uputstvo „Vrati pristup“).', ['nuAdd', 'korisnici'], ''),
   nuRole: e('Uloga novog korisnika', 'urednik (member) piše sadržaj; administrator i upravlja korisnicima i podešavanjima.', '<code>profiles.role</code>: member | admin. Pravila: <code>isMember()</code> za sadržaj, <code>isAdmin()</code> za profiles i settings.', ['profiles', 'uRole', 'rules'], ''),
+  nuCopy: { title: 'Kopiraj poruku za korisnika', what: 'Posle dodavanja korisnika sastavlja gotovu poruku: adresa za prijavu u CMS, email, privremena lozinka i uputstvo da je promeni u „Moj nalog“. Jedan klik kopira u clipboard, pa je administrator šalje korisniku bezbednim kanalom.', how: 'Tekst se gradi u <code>#addUserForm submit</code> iz <code>CMS_URL</code> (adresa foldera u kom CMS radi — ista na localhostu i na GitHub Pages), emaila i privremene lozinke; <code>navigator.clipboard.writeText()</code>. Ako je uključen i email, Firebase-ov email za postavljanje lozinke dobija dugme „Nastavi“ koje vodi na istu adresu (<code>RESET_OPTS = { url: CMS_URL }</code>, takođe kod „Zaboravljena lozinka“ i „Reset“).', related: ['nuMail', 'nuEmail', 'korisnici', 'gForgot'], dev: 'Sadržaj samog Firebase emaila (naslov, tekst) menja se u konzoli: Authentication → Templates → Password reset; adresa <code>2-human.github.io</code> mora biti među Authorized domains da bi „Nastavi“ link bio prihvaćen.' },
   nuMail: e('Pošalji email za lozinku', 'Posle kreiranja šalje email za postavljanje sopstvene lozinke.', '<code>sendPasswordResetEmail(auth, email)</code> posle kreiranja; u emulatoru link je u Emulator UI.', ['nuAdd', 'uReset', 'gForgot'], ''),
   nuAdd: e('Dodaj korisnika', 'Pravi nalog za prijavu i profil sa pristupom; prikazuje privremenu lozinku.', 'Sekundarna Firebase app (<code>initializeApp(CFG, \'add-user-…\')</code>) da admin ostane prijavljen → <code>createUserWithEmailAndPassword(secAuth, email, genPw())</code> → <code>setDoc(profiles/uid, { email, role, active: true, createdAt, createdBy })</code> → opciono reset email → poruka sa privremenom lozinkom → <code>renderUsers()</code>. Na kraju odjava i <code>deleteApp(sec)</code>.', ['korisnici', 'nuEmail', 'nuRole', 'nuMail', 'profiles', 'usersMsg'], '<code>auth/email-already-in-use</code> = Auth nalog postoji bez profila → obriši ga u konzoli. Privremena lozinka je 12 znakova iz <code>crypto.getRandomValues</code>.'),
   consoleLink: e('Firebase konzola (Authentication)', 'Otvara listu Auth naloga u Firebase konzoli — jedino mesto gde se briše nalog za prijavu.', '<code>consoleUsersUrl()</code> = <code>console.firebase.google.com/project/{projectId}/authentication/users</code>.', ['uDel', 'korisnici'], 'CMS može da briše samo profil (Firestore), ne i Auth korisnika (to traži Admin SDK).'),
@@ -909,6 +910,9 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const SITE = window.WWS_SITE || {}, ALL = window.WWS_FIREBASE || {};
 const local = ['localhost', '127.0.0.1'].includes(location.hostname) && !new URLSearchParams(location.search).has('prod');
 const ENV = local ? 'emulator' : 'prod';
+// Where this CMS lives (its own directory) — put into invites and into the "Continue" link of Firebase's password e-mails.
+const CMS_URL = location.origin + location.pathname.replace(/[^/]*$/, '');
+const RESET_OPTS = { url: CMS_URL, handleCodeInApp: false };
 const CFG = ALL[ENV];
 const slugify = s => String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'dj').replace(/Đ/g, 'dj').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'stavka';
 const MARCH = new Date((SITE.march_start || '2026-10-10') + 'T00:00:00+02:00');
@@ -976,7 +980,7 @@ $('#gateForm').addEventListener('submit', async e => {
 $('#gForgot').addEventListener('click', async () => {
   const email = $('#gEmail').value.trim();
   if (!email) { gateMsg.textContent = 'Upiši email pa klikni „Zaboravljena lozinka“.'; return; }
-  try { await sendPasswordResetEmail(auth, email); gateMsg.textContent = 'Ako nalog postoji, poslat je email za postavljanje nove lozinke.'; }
+  try { await sendPasswordResetEmail(auth, email, RESET_OPTS); gateMsg.textContent = 'Ako nalog postoji, poslat je email za postavljanje nove lozinke.'; }
   catch (err) { gateMsg.textContent = 'Slanje nije uspelo: ' + err.code; }
 });
 $$('[data-signout]').forEach(b => b.addEventListener('click', () => signOut(auth)));
@@ -1537,7 +1541,7 @@ $('#usersBody').addEventListener('change', async e => { const sel = e.target.clo
 $('#usersBody').addEventListener('click', async e => {
   const b = e.target.closest('button[data-act]'); if (!b) return;
   const uid = b.closest('tr').dataset.uid, p = profiles.find(x => x.uid === uid);
-  if (b.dataset.act === 'reset') await act(() => sendPasswordResetEmail(auth, p.email), `Poslat je email za postavljanje nove lozinke na ${p.email}.` + (ENV === 'emulator' ? ' (U emulatoru: link je u Emulator UI → Authentication.)' : ''), false);
+  if (b.dataset.act === 'reset') await act(() => sendPasswordResetEmail(auth, p.email, RESET_OPTS), `Poslat je email za postavljanje nove lozinke na ${p.email} (link „Nastavi“ vodi na ${CMS_URL}).` + (ENV === 'emulator' ? ' (U emulatoru: link je u Emulator UI → Authentication.)' : ''), false);
   else if (b.dataset.act === 'off') { if (!confirmInline(b, 'Potvrdi')) return; await act(() => updateDoc(doc(db, 'profiles', uid), { active: false, deactivatedAt: serverTimestamp(), updatedAt: serverTimestamp(), updatedBy: auth.currentUser.uid }), `${p.email} više nema pristup (može se vratiti).`); }
   else if (b.dataset.act === 'on') await act(() => updateDoc(doc(db, 'profiles', uid), { active: true, updatedAt: serverTimestamp(), updatedBy: auth.currentUser.uid }), `${p.email} ponovo ima pristup.`);
   else if (b.dataset.act === 'del') { if (!confirmInline(b, 'Potvrdi')) return; const m = $('#usersMsg');
@@ -1558,9 +1562,11 @@ $('#addUserForm').addEventListener('submit', async e => {
   try {
     const cred = await createUserWithEmailAndPassword(secAuth, email, temp);
     await setDoc(doc(db, 'profiles', cred.user.uid), { email, role, active: true, createdAt: serverTimestamp(), createdBy: auth.currentUser.uid });
-    if (sendMail) await sendPasswordResetEmail(auth, email);
+    if (sendMail) await sendPasswordResetEmail(auth, email, RESET_OPTS);
     e.target.reset(); m.dataset.kind = 'ok';
-    m.innerHTML = `Dodat je ${esc(email)} (${role === 'admin' ? 'administrator' : 'urednik'}). Privremena lozinka: <code>${esc(temp)}</code>` + (sendMail ? ' · poslat je i email za postavljanje sopstvene lozinke.' : ' · prosledi je korisniku bezbednim kanalom.');
+    const invite = `Pristup CMS-u Walk With Serbia\nPrijava: ${CMS_URL}\nEmail: ${email}\nPrivremena lozinka: ${temp}\nPosle prijave promeni lozinku u „Moj nalog“.` + (sendMail ? '\n(Stigao ti je i email za postavljanje sopstvene lozinke — link „Nastavi“ vodi na istu adresu.)' : '');
+    m.innerHTML = `Dodat je ${esc(email)} (${role === 'admin' ? 'administrator' : 'urednik'}). Adresa za prijavu: <a href="${esc(CMS_URL)}" target="_blank" rel="noopener">${esc(CMS_URL)}</a> · privremena lozinka: <code>${esc(temp)}</code>` + (sendMail ? ' · poslat je i email za postavljanje sopstvene lozinke (dugme „Nastavi“ u njemu vodi na tu adresu).' : ' · prosledi je korisniku bezbednim kanalom.') + ` <button type="button" class="button small" id="nuCopy" data-help="nuCopy">Kopiraj poruku za korisnika</button>`;
+    $('#nuCopy').onclick = async () => { const b = $('#nuCopy'); try { await navigator.clipboard.writeText(invite); b.textContent = 'Kopirano'; } catch { b.textContent = 'Nije uspelo'; } setTimeout(() => { b.textContent = 'Kopiraj poruku za korisnika'; }, 1500); };
     renderUsers();
   } catch (err) { m.dataset.kind = 'err'; m.innerHTML = err.code === 'auth/email-already-in-use' ? `Nalog za prijavu sa tim emailom već postoji, ali nema profil. Obriši ga u <a href="${consoleUsersUrl()}" target="_blank" rel="noopener">Firebase konzoli</a> pa ga dodaj ponovo.` : 'Dodavanje nije uspelo: ' + esc(err.code || err.message); }
   finally { await signOut(secAuth).catch(() => {}); await deleteApp(sec).catch(() => {}); }
