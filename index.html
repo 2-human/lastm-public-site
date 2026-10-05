@@ -250,6 +250,22 @@ ul.plain li { padding: var(--space-2) 0; border-bottom: 1px solid var(--brand-su
 .site-header .signout { background: none; border: 0; color: inherit; opacity: .6; cursor: pointer; font: inherit; font-size: var(--fs-small); text-decoration: underline; margin-left: var(--space-3); }
 .site-header .signout[hidden] { display: none; }
 
+/* press kit (simplified) */
+.presskit h1 { margin-bottom: var(--space-4); }
+.press-links { list-style: none; padding: 0; margin: 0 0 var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--fs-h3); font-weight: 700; }
+.press-links a { color: inherit; text-decoration: underline; text-decoration-color: var(--brand-primary); text-underline-offset: .2em; }
+.press-links a:hover { color: var(--brand-primary); }
+.press-day { border-top: 2px solid var(--brand-surface-soft); padding-top: var(--space-6); margin-top: var(--space-6); }
+.press-day h2 { margin: 0 0 var(--space-3); }
+.button.disabled { opacity: .5; pointer-events: none; }
+.timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.timeline li { display: grid; grid-template-columns: 4.5rem 1fr; gap: var(--space-3); border-left: 3px solid var(--brand-primary); padding-left: var(--space-3); }
+.timeline time { font-weight: 700; font-variant-numeric: tabular-nums; }
+.timeline h3 { margin: 0 0 var(--space-1); font-size: var(--fs-body); }
+.timeline .meta { margin: 0 0 var(--space-1); font-size: var(--fs-small); }
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
+.media-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
+
 </style>
 </head>
 <body>
@@ -605,7 +621,7 @@ function vHome() {
   <div class="map-grid"><div><div id="map" class="map" style="height:380px"></div>${legend()}</div><div><h3>Cities</h3><ul class="plain">${[...cities].sort((a, b) => (pc[b.slug] || 0) - (pc[a.slug] || 0)).slice(0, 8).map(c => `<li><a href="#/city/${esc(c.slug)}">${esc(c.name)}</a> <span class="faint">${esc(c.country)} · ${esc(c.status || '')}</span></li>`).join('')}</ul><p><a class="button small" href="#/map">Open the map</a></p></div></div></section>
 <section><h2 class="bar">Latest from the road</h2>${cards(D.posts.slice(0, 6))}<p class="row" style="margin-top:1rem"><a class="button" href="#/feed">All posts</a></p></section>
 <section><h2 class="bar">Featured from the feed</h2>${cards(D.posts.filter(p => p.featured).slice(0, 6))}</section>
-<section class="band tint"><h2 class="bar">Today’s press drop</h2>${drop ? `<p>${drop.day >= 1 ? 'Day ' + esc(drop.day) : 'Before the walk'} · ${(drop.items || []).length} files${drop.bullets ? ' · key points for journalists' : ''} · refilled daily at ${esc(SITE.press_time)}</p>` : ''}<p class="row"><a class="button primary" href="#/press">Open the press kit</a></p></section>`;
+<section class="band tint"><h2 class="bar">For the press</h2>${drop ? `<p>${dayTitle(drop)}: <a href="#/press/${esc(drop.id)}">recap with timeline updates</a> · <a href="#/press/${esc(drop.id)}/media">media gallery</a></p>` : ''}<p class="row"><a class="button primary" href="#/press">Open the press kit</a></p></section>`;
   $('#ctaSend').onclick = e => { e.preventDefault(); chatOpen(true); };
   mapInit($('#map'), cities);
 }
@@ -692,19 +708,43 @@ function vTopics() {
   main.innerHTML = `<section><h1>Topics</h1><p class="lede">Themes that run through the feed.</p><div class="cards">${list.map(t => `<article class="card" data-go="#/topic/${esc(t.slug)}"><div class="content"><h3>${esc(t.title)}</h3><p class="text">${esc(t.description || '')}</p><p class="meta">${plural(pt[t.slug] || 0, 'post')}</p></div></article>`).join('') || '<p class="faint">No topics yet.</p>'}</div></section>`;
 }
 const pressDrops = () => Object.values(D.press).filter(d => d.id !== 'kit').sort((a, b) => b.day - a.day);
+// Press kit (simplified 5 Oct 2026): one announcement block (press release, video, photo gallery, one Download to the Drive
+// folder), then one block per day (newest first) with "Recap with Timeline Updates" and "Media Gallery". Everything is edited in
+// the CMS (press/kit, press/day-NN). Links fall back to on-site pages when no URL is set.
+const pressKit = () => { const pg = SITE.pages.press || {}; return D.press.kit || { intro: pg.body, facts: pg.facts || [], quotes: pg.quotes || [], rules: `${SITE.license}. No permission needed.`, contactEmail: SITE.media_contact.email, contactSignal: SITE.media_contact.signal, contactHours: `English, ${SITE.press_time} onwards for the day’s material, replies within the hour during the march.` }; };
+const dayTitle = d => d.day >= 1 ? `Day ${d.day}` : d.day === 0 ? 'Launch day' : 'Before the walk';
+const ext = u => `href="${esc(u)}" target="_blank" rel="noopener"`;
 function vPress() {
-  const pg = SITE.pages.press || {};
-  // Editable in the CMS (press/kit); the static press.md is only the fallback before the first save.
-  const k = D.press.kit || { intro: pg.body, facts: pg.facts || [], quotes: pg.quotes || [], rules: `${SITE.license}. No permission needed.`, contactEmail: SITE.media_contact.email, contactSignal: SITE.media_contact.signal, contactHours: `English, ${SITE.press_time} onwards for the day’s material, replies within the hour during the march.` };
-  const drops = pressDrops();
-  const TYPES = { video: 'video', image: 'photo', pdf: 'PDF', zip: 'ZIP' };
-  const item = i => `<div class="press-item"><div><b>${esc(i.title)}</b><span class="meta">${[TYPES[i.type] || i.type, i.orientation, i.res, i.duration, i.music === false ? 'no music' : ''].filter(Boolean).map(esc).join(' · ')}${i.city ? ' · ' + esc(D.cities[i.city]?.name || i.city) : ''} · CC BY 4.0</span></div>${safe(i.url) ? `<a class="button small" href="${esc(i.url)}" target="_blank" rel="noopener">Download ↓</a>` : '<span class="faint">file not uploaded yet</span>'}</div>`;
-  main.innerHTML = `<section><h1>Press kit</h1><div class="prose">${paragraphs(k.intro)}</div>
+  const k = pressKit(), drops = pressDrops();
+  const link = (label, url, fallback) => safe(url) ? `<li><a ${ext(url)}>${label} ↗</a></li>` : fallback ? `<li><a href="${fallback}">${label}</a></li>` : `<li><span class="faint">${label} · follows</span></li>`;
+  main.innerHTML = `<section class="presskit"><p class="crumb">Press kit</p><h1>${esc(k.title || 'Walk with Serbia: Announcement')}</h1>
+  <ul class="press-links">${link('Press Release', k.pressReleaseUrl, '#/press/release')}${link('Video', k.videoUrl)}${link('Photo Gallery', k.galleryUrl)}</ul>
+  <p class="row">${safe(k.driveUrl) ? `<a class="button primary" ${ext(k.driveUrl)}>Download ↓</a>` : '<span class="button disabled" aria-disabled="true">Download · folder follows</span>'}</p></section>
+  ${drops.map(d => `<section class="press-day"><h2>${dayTitle(d)}${d.date ? ` <span class="faint">· ${esc(fmtD(new Date(d.date + 'T00:00:00')))}</span>` : ''}</h2>
+  <ul class="press-links"><li><a href="#/press/${esc(d.id)}">Recap with Timeline Updates</a></li>${safe(d.galleryUrl) ? `<li><a ${ext(d.galleryUrl)}>Media Gallery ↗</a></li>` : `<li><a href="#/press/${esc(d.id)}/media">Media Gallery</a></li>`}</ul></section>`).join('') || '<section class="press-day"><p class="faint">The first daily recap opens on launch day.</p></section>'}`;
+}
+function vPressRelease() {
+  const k = pressKit();
+  main.innerHTML = `<section><p class="crumb"><a href="#/press">Press kit</a> › Press release</p><h1>${esc(k.title || 'Walk with Serbia: Announcement')}</h1><div class="prose">${paragraphs(k.intro)}</div>
   <div class="two"><div><h3>Key facts</h3><ul>${(k.facts || []).map(f => `<li>${esc(f)}</li>`).join('')}</ul></div><div><h3>Quotes ready to use</h3><ul class="quotes">${(k.quotes || []).map(q => `<li>“${esc(q)}”</li>`).join('')}</ul></div></div>
-  <p class="row">${safe(k.pdfUrl) ? `<a class="button" href="${esc(k.pdfUrl)}" target="_blank" rel="noopener">Two years in one page (PDF)</a>` : ''}${safe(k.visualUrl) ? ` <a class="button" href="${esc(k.visualUrl)}" target="_blank" rel="noopener">Key visual + logo</a>` : ''}</p></section>
-<section class="band tint"><h2 class="bar">Daily drop <span class="faint">· refilled at ${esc(SITE.press_time)}</span></h2>${drops.map(d => `<section class="drop" style="margin-bottom:2rem"><h3>${d.day >= 1 ? 'Day ' + esc(d.day) : d.day === 0 ? 'Launch day' : 'Before the walk'}${d.date ? ` <span class="faint">· ${esc(d.date)}</span>` : ''}</h3>${d.bullets ? `<div class="prose"><h4>Key points for journalists</h4>${paragraphs(d.bullets)}</div>` : ''}<div class="press-list">${(d.items || []).map(item).join('') || '<p class="faint">Files follow at the daily drop time.</p>'}</div></section>`).join('') || '<p class="faint">The first drop opens on launch day.</p>'}</section>
+  <p class="row">${safe(k.pdfUrl) ? `<a class="button" ${ext(k.pdfUrl)}>Two years in one page (PDF)</a>` : ''}${safe(k.visualUrl) ? ` <a class="button" ${ext(k.visualUrl)}>Key visual + logo</a>` : ''}${safe(k.driveUrl) ? ` <a class="button primary" ${ext(k.driveUrl)}>Download ↓</a>` : ''}</p></section>
 <section><h2 class="bar">Rules of use</h2><div class="prose">${paragraphs(k.rules)}</div>
 <h2 class="bar" style="margin-top:2rem">Media contact</h2><p>${esc(k.contactHours || '')}<br><a href="mailto:${esc(k.contactEmail || '')}">${esc(k.contactEmail || '')}</a>${k.contactSignal ? ` · Signal ${esc(k.contactSignal)}` : ''}</p></section>`;
+}
+function vPressDay(id, media) {
+  const d = D.press[id]; if (!d || id === 'kit') { main.innerHTML = '<p class="notice">This press day was not found.</p>'; return; }
+  const posts = D.posts.filter(p => p.day === d.day).sort((a, b) => a.at - b.at);   // the day's live updates, morning → evening
+  const TYPES = { video: 'video', image: 'photo', pdf: 'PDF', zip: 'ZIP' };
+  const item = i => `<div class="press-item"><div><b>${esc(i.title)}</b><span class="meta">${[TYPES[i.type] || i.type, i.orientation, i.res, i.duration, i.music === false ? 'no music' : ''].filter(Boolean).map(esc).join(' · ')}${i.city ? ' · ' + esc(D.cities[i.city]?.name || i.city) : ''} · CC BY 4.0</span></div>${safe(i.url) ? `<a class="button small" ${ext(i.url)}>Download ↓</a>` : '<span class="faint">file not uploaded yet</span>'}</div>`;
+  const hm = t => t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const upd = p => { const c = p.city && D.cities[p.city]; return `<li><time>${esc(hm(p.at))}</time><div><h3><a href="#/post/${esc(p.id)}">${esc(p.title)}</a></h3>${c ? `<p class="meta"><a href="#/city/${esc(c.slug)}">${esc(c.name)}</a></p>` : ''}${p.text ? paragraphs(p.text) : ''}</div></li>`; };
+  const thumbs = posts.map(p => { const t = thumbOf(p); return safe(t) ? `<a href="#/post/${esc(p.id)}" title="${esc(p.title)}"><img src="${esc(t)}" alt="${esc(p.title)}" loading="lazy"></a>` : ''; }).join('');
+  main.innerHTML = `<section><p class="crumb"><a href="#/press">Press kit</a> › ${dayTitle(d)}</p><h1>${dayTitle(d)}: recap</h1>${d.date ? `<p class="meta">${esc(fmtD(new Date(d.date + 'T00:00:00')))}</p>` : ''}
+  <div class="prose">${d.bullets ? paragraphs(d.bullets) : '<p class="faint">The recap of the day is written in the evening.</p>'}</div></section>
+<section><h2 class="bar">Timeline updates <span class="faint">· ${plural(posts.length, 'update')}</span></h2>${posts.length ? `<ol class="timeline">${posts.map(upd).join('')}</ol>` : '<p class="faint">No live updates from this day yet.</p>'}</section>
+<section id="pressMedia"><h2 class="bar">Media gallery</h2>${safe(d.galleryUrl) ? `<p class="row"><a class="button primary" ${ext(d.galleryUrl)}>Download ↓</a></p>` : ''}
+  <div class="press-list">${(d.items || []).map(item).join('')}</div>${thumbs ? `<div class="media-grid">${thumbs}</div>` : ''}${!(d.items || []).length && !thumbs && !safe(d.galleryUrl) ? '<p class="faint">Media from this day follows.</p>' : ''}</section>`;
+  if (media) setTimeout(() => { const el = document.getElementById('pressMedia'); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 70 }); }, 120);   // after the router's scroll-to-top; 70 px = sticky header
 }
 
 // ── walks ──
@@ -750,11 +790,11 @@ function vWalks() {
 }
 
 // ── router ──
-const ROUTES = [[/^\/?$/, vHome, 'home'], [/^\/feed$/, vFeed, 'feed'], [/^\/map$/, vMap, 'map'], [/^\/walks$/, vWalks, 'map'], [/^\/press$/, vPress, 'press'], [/^\/people$/, vPeople, ''], [/^\/topics$/, vTopics, ''],
+const ROUTES = [[/^\/?$/, vHome, 'home'], [/^\/feed$/, vFeed, 'feed'], [/^\/map$/, vMap, 'map'], [/^\/walks$/, vWalks, 'map'], [/^\/press$/, vPress, 'press'], [/^\/press\/release$/, vPressRelease, 'press'], [/^\/press\/(day-[a-z0-9-]+)(\/media)?$/, vPressDay, 'press'], [/^\/people$/, vPeople, ''], [/^\/topics$/, vTopics, ''],
   [/^\/post\/(.+)$/, vPost, 'feed'], [/^\/city\/(.+)$/, vCity, 'map'], [/^\/walk\/(.+)$/, vWalk, 'map'], [/^\/person\/(.+)$/, vPerson, ''], [/^\/topic\/(.+)$/, vTopic, '']];
 function route() {
   const h = decodeURIComponent(location.hash.replace(/^#/, '')) || '/';
-  for (const [re, fn, nav] of ROUTES) { const m = h.match(re); if (m) { document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === nav)); fn(m[1]); renderSide(); window.scrollTo(0, 0); return; } }
+  for (const [re, fn, nav] of ROUTES) { const m = h.match(re); if (m) { document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === nav)); fn(m[1], m[2]); renderSide(); window.scrollTo(0, 0); return; } }
   location.hash = '#/';
 }
 document.addEventListener('click', e => { const c = e.target.closest('[data-go]'); if (c && !e.target.closest('a')) location.hash = c.dataset.go; });
