@@ -1113,7 +1113,7 @@ function openPost(id) {
       <div class="library" id="pLibrary" data-help-covered="pLib" hidden></div>
       <div class="social-list" id="pSocial"></div></div>
     <label class="fld">Sličica objave (URL, zamenjuje automatsku)<input id="pThumb" value="${esc(ED.thumb || '')}"></label>
-    <div class="fld">Oznake<label class="fld check"><input id="pPinned" type="checkbox" ${ED.pinned ? 'checked' : ''}> zakačeno (Pinned u levoj navigaciji)</label><label class="fld check"><input id="pFeatured" type="checkbox" ${ED.featured ? 'checked' : ''}> istaknuto na Home</label></div>
+    <div class="fld">Oznake<label class="fld check"><input id="pPinned" type="checkbox" ${ED.pinned ? 'checked' : ''}> zakačeno (Pinned — leva navigacija je uklonjena sa sajta; trenutno bez prikaza)</label><label class="fld check"><input id="pFeatured" type="checkbox" ${ED.featured ? 'checked' : ''}> istaknuto na Home</label></div>
     <div class="fld wide" data-help="pTopics">Teme<div class="chips">${topicChips || '<span class="faint">još nema tema</span>'}</div></div>
     <div class="wide"><div class="faint" style="font-size:.85rem">Ljudi (automatski iz linkova): <span id="pPeople"></span></div></div>
     <p class="wide actions"><button type="button" class="button primary" id="pSave">Sačuvaj</button> ${p ? '<button type="button" class="button danger" id="pDelete">Obriši</button>' : ''} <button type="button" class="button" id="pClose">Zatvori</button><span class="msg" id="pMsg"></span></p>
