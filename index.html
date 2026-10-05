@@ -250,13 +250,38 @@ ul.plain li { padding: var(--space-2) 0; border-bottom: 1px solid var(--brand-su
 .site-header .signout { background: none; border: 0; color: inherit; opacity: .6; cursor: pointer; font: inherit; font-size: var(--fs-small); text-decoration: underline; margin-left: var(--space-3); }
 .site-header .signout[hidden] { display: none; }
 
-/* press kit (simplified) */
-.presskit h1 { margin-bottom: var(--space-4); }
-.press-links { list-style: none; padding: 0; margin: 0 0 var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--fs-h3); font-weight: 700; }
-.press-links a { color: inherit; text-decoration: underline; text-decoration-color: var(--brand-primary); text-underline-offset: .2em; }
-.press-links a:hover { color: var(--brand-primary); }
-.press-day { border-top: 2px solid var(--brand-surface-soft); padding-top: var(--space-6); margin-top: var(--space-6); }
-.press-day h2 { margin: 0 0 var(--space-3); }
+/* press kit */
+.pk-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-6); flex-wrap: wrap; }
+.pk-head h1 { margin: 0 0 var(--space-2); }
+.pk-meta { text-align: right; font-size: var(--fs-small); margin: var(--space-2) 0 0; }
+.pk-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); margin-top: var(--space-6); }
+.pk-stats .stat { background: var(--brand-surface-soft); border-radius: var(--radius-card); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-1); }
+.pk-stats .stat b { font-size: var(--fs-h2); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pk-stats .stat span { font-size: var(--fs-small); }
+.pk-block { border-top: 2px solid var(--brand-surface-soft); padding-top: var(--space-6); margin-top: var(--space-8); }
+.pk-block h2 { margin: 0 0 var(--space-4); }
+.pk-block h2 a { color: inherit; }
+.pk-block.latest { border-top-color: var(--brand-primary); }
+.eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: var(--fs-small); font-weight: 700; color: var(--brand-primary); margin: 0 0 var(--space-1); }
+.pk-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); }
+.pk-tiles .tile { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); background: var(--brand-surface-soft); border-radius: var(--radius-card); padding: var(--space-4); font-weight: 700; font-size: var(--fs-h3); color: inherit; text-decoration: none; }
+.pk-tiles a.tile:hover { outline: 2px solid var(--brand-primary); }
+.pk-tiles .tile.off { opacity: .55; }
+.pk-tiles .tile small { font-weight: 400; font-size: var(--fs-small); }
+.pk-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin: var(--space-4) 0 0; flex-wrap: wrap; }
+.res-icons { display: inline-flex; gap: var(--space-2); flex: none; }
+.icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: var(--brand-primary); color: var(--brand-on-primary); }
+.icon-btn svg { width: 22px; height: 22px; }
+.icon-btn.off { background: var(--brand-surface-soft); color: inherit; opacity: .45; }
+a.icon-btn:hover { filter: brightness(.9); }
+.pk-days { list-style: none; padding: 0; margin: 0; }
+.pk-days li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-bottom: 1px solid var(--brand-surface-soft); }
+.pk-days li > a { color: inherit; text-decoration: none; flex: 1; min-width: 0; }
+.pk-days li > a:hover b { color: var(--brand-primary); }
+.pk-days .what { display: block; font-size: var(--fs-small); opacity: .75; }
+.pk-foot { align-items: start; }
+.timeline.compact { gap: var(--space-2); margin: var(--space-3) 0 0; }
+.timeline.compact h3 { margin: 0; }
 .button.disabled { opacity: .5; pointer-events: none; }
 .timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 .timeline li { display: grid; grid-template-columns: 4.5rem 1fr; gap: var(--space-3); border-left: 3px solid var(--brand-primary); padding-left: var(--space-3); }
@@ -714,20 +739,44 @@ const pressDrops = () => Object.values(D.press).filter(d => d.id !== 'kit').sort
 const pressKit = () => { const pg = SITE.pages.press || {}; return D.press.kit || { intro: pg.body, facts: pg.facts || [], quotes: pg.quotes || [], rules: `${SITE.license}. No permission needed.`, contactEmail: SITE.media_contact.email, contactSignal: SITE.media_contact.signal, contactHours: `English, ${SITE.press_time} onwards for the day’s material, replies within the hour during the march.` }; };
 const dayTitle = d => d.day >= 1 ? `Day ${d.day}` : d.day === 0 ? 'Launch day' : 'Before the walk';
 const ext = u => `href="${esc(u)}" target="_blank" rel="noopener"`;
+const ICON = { zip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 19h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' };
+// One resource = two actions: download the ZIP, or browse the folder. A missing URL shows the icon disabled.
+const resIcons = (zipUrl, folderUrl, what) => `<span class="res-icons">${safe(zipUrl) ? `<a class="icon-btn" ${ext(zipUrl)} aria-label="Download ${esc(what)} (ZIP)" title="Download ZIP">${ICON.zip}</a>` : `<span class="icon-btn off" title="ZIP follows" aria-label="ZIP not available yet">${ICON.zip}</span>`}${safe(folderUrl) ? `<a class="icon-btn" ${ext(folderUrl)} aria-label="Browse ${esc(what)} folder" title="Browse folder">${ICON.folder}</a>` : `<span class="icon-btn off" title="Folder follows" aria-label="Folder not available yet">${ICON.folder}</span>`}</span>`;
+const tsDate = v => v?.toDate ? v.toDate() : v ? new Date(v) : null;
 function vPress() {
-  const k = pressKit(), drops = pressDrops();
-  const link = (label, url, fallback) => safe(url) ? `<li><a ${ext(url)}>${label} ↗</a></li>` : fallback ? `<li><a href="${fallback}">${label}</a></li>` : `<li><span class="faint">${label} · follows</span></li>`;
-  main.innerHTML = `<section class="presskit"><p class="crumb">Press kit</p><h1>${esc(k.title || 'Walk with Serbia: Announcement')}</h1>
-  <ul class="press-links">${link('Press Release', k.pressReleaseUrl, '#/press/release')}${link('Video', k.videoUrl)}${link('Photo Gallery', k.galleryUrl)}</ul>
-  <p class="row">${safe(k.driveUrl) ? `<a class="button primary" ${ext(k.driveUrl)}>Download ↓</a>` : '<span class="button disabled" aria-disabled="true">Download · folder follows</span>'}</p></section>
-  ${drops.map(d => `<section class="press-day"><h2>${dayTitle(d)}${d.date ? ` <span class="faint">· ${esc(fmtD(new Date(d.date + 'T00:00:00')))}</span>` : ''}</h2>
-  <ul class="press-links"><li><a href="#/press/${esc(d.id)}">Recap with Timeline Updates</a></li>${safe(d.galleryUrl) ? `<li><a ${ext(d.galleryUrl)}>Media Gallery ↗</a></li>` : `<li><a href="#/press/${esc(d.id)}/media">Media Gallery</a></li>`}</ul></section>`).join('') || '<section class="press-day"><p class="faint">The first daily recap opens on launch day.</p></section>'}`;
+  const k = pressKit(), drops = pressDrops(), now = Date.now();
+  // key numbers about the protest to date (all editable in the CMS → Press kit)
+  const startD = new Date((k.protestStart || '2024-11-01') + 'T00:00:00'), t = electionInstant();
+  const stat = (v, l) => `<div class="stat"><b>${v}</b><span>${esc(l)}</span></div>`;
+  const stats = [stat(esc(fmtD(startD)), k.protestStartLabel || 'Protests began'), stat(Math.max(0, Math.floor((now - startD) / 86400000)).toLocaleString('en-GB'), 'Days on the streets'),
+    t ? stat(Math.max(0, Math.ceil((t - now) / 86400000)), `Days to the election · ${fmtD(new Date(t))}`) : '', stat(esc(k.candidates ?? 250), k.candidatesLabel || 'Candidates on the student list'),
+    ...(k.stats || []).map(x => { const [v, ...l] = String(x).split('|'); return l.length ? stat(esc(v.trim()), l.join('|').trim()) : ''; })].join('');
+  const upd = [k, ...drops].map(x => tsDate(x.updatedAt)).filter(Boolean).sort((a, b) => b - a)[0];
+  const tile = (label, url, fallback) => safe(url) ? `<a class="tile" ${ext(url)}>${label} <span aria-hidden="true">↗</span></a>` : fallback ? `<a class="tile" href="${fallback}">${label}</a>` : `<span class="tile off">${label}<small>follows</small></span>`;
+  const dayRow = d => `<li><a href="#/press/${esc(d.id)}"><b>${dayTitle(d)}</b>${d.date ? ` <span class="faint">· ${esc(fmtD(new Date(d.date + 'T00:00:00')))}</span>` : ''}<span class="what">Recap, timeline and media</span></a>${resIcons(d.zipUrl, d.galleryUrl, dayTitle(d))}</li>`;
+  const latest = drops[0], lp = latest ? D.posts.filter(p => p.day === latest.day).sort((a, b) => b.at - a.at).slice(0, 3) : [];
+  const hm = x => x.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  main.innerHTML = `<section class="presskit"><div class="pk-head"><div><h1>Press Kit</h1><p class="lede">${esc(k.lede || `The last walk: Novi Sad to Belgrade, from 10 October to election day. Everything here is free to use (${SITE.license}).`)}</p></div>
+    <p class="pk-meta"><a href="mailto:${esc(k.contactEmail || SITE.media_contact.email)}">${esc(k.contactEmail || SITE.media_contact.email)}</a>${upd ? `<br><span class="faint">Updated ${esc(fmtDT(upd))}</span>` : ''}</p></div>
+  <div class="pk-stats">${stats}</div></section>
+<section class="pk-block"><h2>${esc(k.title || 'Official announcement')}</h2><div class="pk-tiles">${tile('Press release', k.pressReleaseUrl, '#/press/release')}${tile('Video', k.videoUrl)}${tile('Photo gallery', k.galleryUrl)}</div>
+  <p class="pk-actions"><span>Everything in one package</span>${resIcons(k.zipUrl, k.driveUrl, 'the announcement')}</p></section>
+${latest ? `<section class="pk-block latest"><p class="eyebrow">Latest</p><h2><a href="#/press/${esc(latest.id)}">${dayTitle(latest)}</a>${latest.date ? ` <span class="faint">· ${esc(fmtD(new Date(latest.date + 'T00:00:00')))}</span>` : ''}</h2>
+  ${latest.bullets ? `<div class="prose">${paragraphs(latest.bullets.split('\n').filter(Boolean).slice(0, 5).join('\n'))}</div>` : ''}
+  ${lp.length ? `<ol class="timeline compact">${lp.map(p => `<li><time>${esc(hm(p.at))}</time><div><h3><a href="#/post/${esc(p.id)}">${esc(p.title)}</a></h3></div></li>`).join('')}</ol>` : ''}
+  <p class="pk-actions"><a href="#/press/${esc(latest.id)}">Full recap and timeline ›</a>${resIcons(latest.zipUrl, latest.galleryUrl, dayTitle(latest))}</p></section>` : ''}
+<section class="pk-block"><h2>Day by day</h2>${drops.length ? `<ul class="pk-days">${drops.map(dayRow).join('')}</ul>` : '<p class="faint">The first daily package opens on launch day.</p>'}</section>
+<div class="two pk-foot"><section class="pk-block"><h2>Background</h2><ul>${(k.facts || []).map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+  <p class="row">${safe(k.pdfUrl) ? `<a class="button small" ${ext(k.pdfUrl)}>Two years in one page (PDF)</a>` : ''} <a class="button small" href="#/map">Route and dates</a></p></section>
+<section class="pk-block"><h2>Use and contact</h2><div class="prose">${paragraphs(k.rules)}</div>
+  <p>${esc(k.contactHours || '')}<br><a href="mailto:${esc(k.contactEmail || '')}">${esc(k.contactEmail || '')}</a>${k.contactSignal ? ` · Signal ${esc(k.contactSignal)}` : ''}</p>
+  ${safe(k.visualUrl) ? `<p class="row"><a class="button small" ${ext(k.visualUrl)}>Key visual + logo</a></p>` : ''}</section></div>`;
 }
 function vPressRelease() {
   const k = pressKit();
-  main.innerHTML = `<section><p class="crumb"><a href="#/press">Press kit</a> › Press release</p><h1>${esc(k.title || 'Walk with Serbia: Announcement')}</h1><div class="prose">${paragraphs(k.intro)}</div>
+  main.innerHTML = `<section><p class="crumb"><a href="#/press">Press Kit</a> › Press release</p><h1>${esc(k.title || 'Official announcement')}</h1><div class="prose">${paragraphs(k.intro)}</div>
   <div class="two"><div><h3>Key facts</h3><ul>${(k.facts || []).map(f => `<li>${esc(f)}</li>`).join('')}</ul></div><div><h3>Quotes ready to use</h3><ul class="quotes">${(k.quotes || []).map(q => `<li>“${esc(q)}”</li>`).join('')}</ul></div></div>
-  <p class="row">${safe(k.pdfUrl) ? `<a class="button" ${ext(k.pdfUrl)}>Two years in one page (PDF)</a>` : ''}${safe(k.visualUrl) ? ` <a class="button" ${ext(k.visualUrl)}>Key visual + logo</a>` : ''}${safe(k.driveUrl) ? ` <a class="button primary" ${ext(k.driveUrl)}>Download ↓</a>` : ''}</p></section>
+  <p class="row">${safe(k.pdfUrl) ? `<a class="button" ${ext(k.pdfUrl)}>Two years in one page (PDF)</a>` : ''}${safe(k.visualUrl) ? ` <a class="button" ${ext(k.visualUrl)}>Key visual + logo</a>` : ''}${resIcons(k.zipUrl, k.driveUrl, 'the announcement')}</p></section>
 <section><h2 class="bar">Rules of use</h2><div class="prose">${paragraphs(k.rules)}</div>
 <h2 class="bar" style="margin-top:2rem">Media contact</h2><p>${esc(k.contactHours || '')}<br><a href="mailto:${esc(k.contactEmail || '')}">${esc(k.contactEmail || '')}</a>${k.contactSignal ? ` · Signal ${esc(k.contactSignal)}` : ''}</p></section>`;
 }
@@ -739,10 +788,10 @@ function vPressDay(id, media) {
   const hm = t => t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const upd = p => { const c = p.city && D.cities[p.city]; return `<li><time>${esc(hm(p.at))}</time><div><h3><a href="#/post/${esc(p.id)}">${esc(p.title)}</a></h3>${c ? `<p class="meta"><a href="#/city/${esc(c.slug)}">${esc(c.name)}</a></p>` : ''}${p.text ? paragraphs(p.text) : ''}</div></li>`; };
   const thumbs = posts.map(p => { const t = thumbOf(p); return safe(t) ? `<a href="#/post/${esc(p.id)}" title="${esc(p.title)}"><img src="${esc(t)}" alt="${esc(p.title)}" loading="lazy"></a>` : ''; }).join('');
-  main.innerHTML = `<section><p class="crumb"><a href="#/press">Press kit</a> › ${dayTitle(d)}</p><h1>${dayTitle(d)}: recap</h1>${d.date ? `<p class="meta">${esc(fmtD(new Date(d.date + 'T00:00:00')))}</p>` : ''}
+  main.innerHTML = `<section><p class="crumb"><a href="#/press">Press Kit</a> › ${dayTitle(d)}</p><div class="pk-head"><div><h1>${dayTitle(d)}: recap</h1>${d.date ? `<p class="meta">${esc(fmtD(new Date(d.date + 'T00:00:00')))}</p>` : ''}</div>${resIcons(d.zipUrl, d.galleryUrl, dayTitle(d))}</div>
   <div class="prose">${d.bullets ? paragraphs(d.bullets) : '<p class="faint">The recap of the day is written in the evening.</p>'}</div></section>
 <section><h2 class="bar">Timeline updates <span class="faint">· ${plural(posts.length, 'update')}</span></h2>${posts.length ? `<ol class="timeline">${posts.map(upd).join('')}</ol>` : '<p class="faint">No live updates from this day yet.</p>'}</section>
-<section id="pressMedia"><h2 class="bar">Media gallery</h2>${safe(d.galleryUrl) ? `<p class="row"><a class="button primary" ${ext(d.galleryUrl)}>Download ↓</a></p>` : ''}
+<section id="pressMedia"><h2 class="bar">Media gallery</h2>${safe(d.zipUrl) || safe(d.galleryUrl) ? `<p class="pk-actions"><span>The whole day in one package</span>${resIcons(d.zipUrl, d.galleryUrl, dayTitle(d))}</p>` : ''}
   <div class="press-list">${(d.items || []).map(item).join('')}</div>${thumbs ? `<div class="media-grid">${thumbs}</div>` : ''}${!(d.items || []).length && !thumbs && !safe(d.galleryUrl) ? '<p class="faint">Media from this day follows.</p>' : ''}</section>`;
   if (media) setTimeout(() => { const el = document.getElementById('pressMedia'); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 70 }); }, 120);   // after the router's scroll-to-top; 70 px = sticky header
 }
