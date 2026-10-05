@@ -390,7 +390,7 @@ img, video, iframe { max-width: 100%; }
   <a href="#/feed" data-nav="feed">Feed</a>
   <a href="#/map" data-nav="map">Map</a>
   <span class="spacer"></span>
-  <a href="#/press" class="button primary small" id="ctaTop" data-nav="press">Press kit</a>
+  <a href="?demo=press#/press" class="button primary small" id="ctaTop" data-nav="press">Press kit</a>
   <button class="linkish signout" data-signout type="button" hidden title="Sign out of the preview">Sign out</button>
 </nav></header>
 <div class="layout">
@@ -673,7 +673,7 @@ function vHome() {
 <section class="hero"><div class="hero-grid"><div>
   <h1>${esc(SITE.claim)}</h1>
   <p class="lede">${esc(SITE.cta)} The march to Belgrade starts on ${esc(fmtD(MARCH))}. Every city that walks is a new point on the map.</p>
-  <p class="row"><a class="button primary" href="#/press">Press kit</a> <a class="button" id="ctaSend" href="#">Send us content</a></p>
+  <p class="row"><a class="button primary" href="${PRESS_HREF}">Press kit</a> <a class="button" id="ctaSend" href="#">Send us content</a></p>
 </div><div class="video ph"><span>▶ intro film · ${esc(SITE.intro_video?.duration || '')} · EN subtitles</span></div></div></section>
 <section class="band tint"><div class="today"><div>${electionCounter()}</div>${todayProgram()}</div></section>
 <section><h2 class="bar">Where Serbia walks</h2>
@@ -681,7 +681,7 @@ function vHome() {
   <div class="map-grid"><div><div id="map" class="map" style="height:380px"></div>${legend()}</div><div><h3>Cities</h3><ul class="plain">${[...cities].sort((a, b) => (pc[b.slug] || 0) - (pc[a.slug] || 0)).slice(0, 8).map(c => `<li><a href="#/city/${esc(c.slug)}">${esc(c.name)}</a> <span class="faint">${esc(c.country)} · ${esc(c.status || '')}</span></li>`).join('')}</ul><p><a class="button small" href="#/map">Open the map</a></p></div></div></section>
 <section><h2 class="bar">Latest from the road</h2>${cards(D.posts.slice(0, 6))}<p class="row" style="margin-top:1rem"><a class="button" href="#/feed">All posts</a></p></section>
 <section><h2 class="bar">Featured from the feed</h2>${cards(D.posts.filter(p => p.featured).slice(0, 6))}</section>
-<section class="band tint"><h2 class="bar">For the press</h2>${drop ? `<p>${dayTitle(drop)}: <a href="#/press/${esc(drop.id)}">recap with timeline updates</a> · <a href="#/press/${esc(drop.id)}/media">media gallery</a></p>` : ''}<p class="row"><a class="button primary" href="#/press">Open the press kit</a></p></section>`;
+<section class="band tint"><h2 class="bar">For the press</h2>${drop ? `<p>${dayTitle(drop)}: <a href="#/press/${esc(drop.id)}">recap with timeline updates</a> · <a href="#/press/${esc(drop.id)}/media">media gallery</a></p>` : ''}<p class="row"><a class="button primary" href="${PRESS_HREF}">Open the press kit</a></p></section>`;
   $('#ctaSend').onclick = e => { e.preventDefault(); chatOpen(true); };
   mapInit($('#map'), cities);
 }
@@ -774,6 +774,9 @@ const pressDrops = () => Object.values(D.press).filter(d => d.id !== 'kit' && d.
 const pressKit = () => { const pg = SITE.pages.press || {}; return D.press.kit || { intro: pg.body, facts: pg.facts || [], quotes: pg.quotes || [], rules: `${SITE.license}. No permission needed.`, contactEmail: SITE.media_contact.email, contactHours: `English, ${SITE.press_time} onwards for the day’s material, replies within the hour during the march.` }; };
 const dayTitle = d => `Day ${d.day}`;
 const DEMO = { on: new URLSearchParams(location.search).get('demo') === 'press', posts: {} };
+// Until the real press days exist, every Press kit button opens the simulated press kit (operator, 5 Oct 2026).
+// Going live with real content = set PRESS_HREF back to '#/press' here and in app/index.html (#ctaTop).
+const PRESS_HREF = '?demo=press#/press';
 const dayPosts = d => [...D.posts.filter(p => p.day === d.day), ...(DEMO.posts[d.day] || [])].sort((a, b) => a.at - b.at);   // the day's live updates, morning → evening
 const excerpt = (t, n = 260) => { const x = String(t || '').split('\n').map(l => l.replace(/^\s*[•\-]\s*/, '').trim()).filter(Boolean).join(' '); return x.length > n ? x.slice(0, x.lastIndexOf(' ', n)) + '…' : x; };
 // ?demo=press — fifteen simulated press days (nothing is written to the database) so the page can be judged with a full march.
