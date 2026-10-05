@@ -291,6 +291,20 @@ a.icon-btn:hover { filter: brightness(.9); }
 .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
 .media-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
 
+.pk-block .lead, .presskit .lead { font-size: var(--fs-body); max-width: 68ch; margin: 0 0 var(--space-4); }
+.pk-block.day h2, .pk-block.ann h2 { margin-bottom: var(--space-2); }
+.pk-block.day h2 a, .pk-block.ann h2 a { text-decoration: none; }
+.pk-block.day h2 a:hover, .pk-block.ann h2 a:hover { color: var(--brand-primary); }
+.pk-links { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); margin: 0 0 var(--space-4); font-weight: 700; }
+.pk-links a, .pk-links .off { display: inline-flex; align-items: center; gap: var(--space-2); color: inherit; text-decoration: none; }
+.pk-links a:hover { color: var(--brand-primary); }
+.pk-links .off { opacity: .4; font-weight: 500; }
+.pk-links svg { width: 22px; height: 22px; flex: none; }
+.pk-dl { display: flex; align-items: center; gap: var(--space-3); margin: 0; }
+.pk-dl .lbl { font-size: var(--fs-small); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.pk-dl .icon-btn { width: 40px; height: 40px; margin-right: var(--space-4); }
+.notice.demo { border-left: 4px solid var(--brand-primary); background: var(--brand-surface-soft); padding: var(--space-3) var(--space-4); border-radius: 0; margin: 0 0 var(--space-6); }
+
 </style>
 </head>
 <body>
@@ -732,17 +746,42 @@ function vTopics() {
   const pt = count(D.posts, 'topics'); const list = Object.values(D.topics).sort((a, b) => (pt[b.slug] || 0) - (pt[a.slug] || 0));
   main.innerHTML = `<section><h1>Topics</h1><p class="lede">Themes that run through the feed.</p><div class="cards">${list.map(t => `<article class="card" data-go="#/topic/${esc(t.slug)}"><div class="content"><h3>${esc(t.title)}</h3><p class="text">${esc(t.description || '')}</p><p class="meta">${plural(pt[t.slug] || 0, 'post')}</p></div></article>`).join('') || '<p class="faint">No topics yet.</p>'}</div></section>`;
 }
-const pressDrops = () => Object.values(D.press).filter(d => d.id !== 'kit').sort((a, b) => b.day - a.day);
+const pressDrops = () => Object.values(D.press).filter(d => d.id !== 'kit' && d.day >= 1).sort((a, b) => b.day - a.day);   // press days start at Day 1; newest first
 // Press kit (simplified 5 Oct 2026): one announcement block (press release, video, photo gallery, one Download to the Drive
 // folder), then one block per day (newest first) with "Recap with Timeline Updates" and "Media Gallery". Everything is edited in
 // the CMS (press/kit, press/day-NN). Links fall back to on-site pages when no URL is set.
 const pressKit = () => { const pg = SITE.pages.press || {}; return D.press.kit || { intro: pg.body, facts: pg.facts || [], quotes: pg.quotes || [], rules: `${SITE.license}. No permission needed.`, contactEmail: SITE.media_contact.email, contactSignal: SITE.media_contact.signal, contactHours: `English, ${SITE.press_time} onwards for the day’s material, replies within the hour during the march.` }; };
-const dayTitle = d => d.day >= 1 ? `Day ${d.day}` : d.day === 0 ? 'Launch day' : 'Before the walk';
+const dayTitle = d => `Day ${d.day}`;
+const DEMO = { on: new URLSearchParams(location.search).get('demo') === 'press', posts: {} };
+const dayPosts = d => [...D.posts.filter(p => p.day === d.day), ...(DEMO.posts[d.day] || [])].sort((a, b) => a.at - b.at);   // the day's live updates, morning → evening
+const excerpt = (t, n = 260) => { const x = String(t || '').split('\n').map(l => l.replace(/^\s*[•\-]\s*/, '').trim()).filter(Boolean).join(' '); return x.length > n ? x.slice(0, x.lastIndexOf(' ', n)) + '…' : x; };
+// ?demo=press — fifteen simulated press days (nothing is written to the database) so the page can be judged with a full march.
+function applyPressDemo() {
+  const legs = [['Novi Sad', 'Sremski Karlovci', 12], ['Sremski Karlovci', 'Inđija', 24], ['Inđija', 'Stara Pazova', 18], ['Stara Pazova', 'Nova Pazova', 9], ['Nova Pazova', 'Batajnica', 11], ['Batajnica', 'Zemun', 14], ['Zemun', 'Novi Beograd', 7], ['Novi Beograd', 'Belgrade, Slavija', 8],
+    ['Belgrade', 'the faculties in blockade', 6], ['Belgrade', 'the neighbourhood assemblies', 9], ['Belgrade', 'Pančevo and back', 17], ['Belgrade', 'the diaspora day', 5], ['Belgrade', 'meet the candidates', 4], ['Belgrade', 'the eve of the vote', 6], ['Belgrade', 'the last walk to the polling stations', 10]];
+  const start = new Date(SITE.march_start + 'T00:00:00'), ex = 'https://example.org/demo';
+  Object.keys(D.press).forEach(k => { if (k !== 'kit') delete D.press[k]; });
+  D.press.kit = { title: 'The last walk: students set off from Novi Sad to Belgrade on 10 October', lead: 'After two years on the streets, the student movement walks from the railway station in Novi Sad to Belgrade and arrives on the eve of the snap election of 25 October. Two hundred and fifty candidates stand on the student list.', videoUrl: ex + '/announcement-video', galleryUrl: ex + '/announcement-images', zipUrl: ex + '/announcement.zip', driveUrl: ex + '/announcement-folder', ...Object.fromEntries(Object.entries(D.press.kit || {}).filter(([, v]) => v !== '' && v != null)) };   // real values win only where they are filled in
+  legs.forEach(([from, to, km], i) => { const n = i + 1, date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`, id = `day-${String(n).padStart(2, '0')}`;
+    D.press[id] = { id, day: n, date: iso, title: n <= 8 ? `${from} → ${to}` : `${from}: ${to}`, videoUrl: ex + `/day-${n}-video`, imagesUrl: ex + `/day-${n}-images`, zipUrl: ex + `/day-${n}.zip`, galleryUrl: ex + `/day-${n}-folder`,
+      bullets: `${n <= 8 ? `The column left ${from} at 08:00 and reached ${to} in the late afternoon: ${km} km on foot, the ${n === 1 ? 'first' : 'next'} leg of the march to Belgrade.` : `Day ${n} was a Belgrade day (${to}): ${km} km through the city, with stops at the faculties and the assemblies.`}\nAt 11:52 the walkers stopped for sixteen minutes of silence for the victims of the Novi Sad canopy collapse.\n• About ${(3 + n % 5) * 1000 + 500} people walked today; ${2 + n % 4} towns sent delegations.\n• Solidarity walks were held in ${4 + n} cities abroad.\n• Tomorrow: ${legs[n] ? (n < 8 ? `${legs[n][0]} → ${legs[n][1]}` : legs[n][1]) : 'election day, 25 October'}.`, items: [], updatedAt: date };
+    const at = (h, m) => new Date(+date + h * 3600000 + m * 60000);
+    DEMO.posts[n] = [[8, 0, n <= 8 ? `The column leaves ${from}` : `Morning assembly: ${to}`], [11, 52, 'Sixteen minutes of silence'], [14, 30, n <= 8 ? `Halfway: lunch served by the people of the villages on the road` : 'Students speak with residents, door to door'], [17, 15, n <= 8 ? `Arrival in ${to}` : 'The day ends at Slavija'], [19, 30, 'Evening statement from the student list']]
+      .map(([h, m, title], j) => ({ id: `demo-${n}-${j}`, demo: true, day: n, at: at(h, m), title, text: j === 4 ? '“We walk so that nobody has to walk again.”' : '', city: null }));
+  });
+}
+
 const ext = u => `href="${esc(u)}" target="_blank" rel="noopener"`;
 const ICON = { zip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 19h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' };
 // One resource = two actions: download the ZIP, or browse the folder. A missing URL shows the icon disabled.
 const resIcons = (zipUrl, folderUrl, what) => `<span class="res-icons">${safe(zipUrl) ? `<a class="icon-btn" ${ext(zipUrl)} aria-label="Download ${esc(what)} (ZIP)" title="Download ZIP">${ICON.zip}</a>` : `<span class="icon-btn off" title="ZIP follows" aria-label="ZIP not available yet">${ICON.zip}</span>`}${safe(folderUrl) ? `<a class="icon-btn" ${ext(folderUrl)} aria-label="Browse ${esc(what)} folder" title="Browse folder">${ICON.folder}</a>` : `<span class="icon-btn off" title="Folder follows" aria-label="Folder not available yet">${ICON.folder}</span>`}</span>`;
 const tsDate = v => v?.toDate ? v.toDate() : v ? new Date(v) : null;
+const ICO = { doc: '<path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"/>', play: '<path d="M4 5h16v14H4zM10 9l5 3-5 3z"/>', image: '<path d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4"/><circle cx="9" cy="9" r="1.5"/>', clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>' };
+const ico = k => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICO[k]}</svg>`;
+// A labelled resource link: external URL, on-site fallback, or greyed out while it is missing.
+const resLink = (icon, label, url, fallback) => safe(url) ? `<a ${ext(url)}>${ico(icon)}${label}</a>` : fallback ? `<a href="${fallback}">${ico(icon)}${label}</a>` : `<span class="off" title="Follows">${ico(icon)}${label}</span>`;
+const dlRow = (zipUrl, folderUrl, what) => `<p class="pk-dl"><span class="lbl">Download</span>${safe(zipUrl) ? `<a class="icon-btn" ${ext(zipUrl)} aria-label="Download ${esc(what)} (ZIP)" title="Download ZIP">${ICON.zip}</a>` : `<span class="icon-btn off" title="ZIP follows" aria-label="ZIP not available yet">${ICON.zip}</span>`}<span class="lbl">Browse</span>${safe(folderUrl) ? `<a class="icon-btn" ${ext(folderUrl)} aria-label="Browse ${esc(what)} folder" title="Browse folder">${ICON.folder}</a>` : `<span class="icon-btn off" title="Folder follows" aria-label="Folder not available yet">${ICON.folder}</span>`}</p>`;
+const demoNote = () => DEMO.on ? '<p class="notice demo">Simulated content: fifteen example press days, nothing here is real or saved. Remove <code>?demo=press</code> from the address to see the live page.</p>' : '';
 function vPress() {
   const k = pressKit(), drops = pressDrops(), now = Date.now();
   // key numbers about the protest to date (all editable in the CMS → Press kit)
@@ -752,20 +791,20 @@ function vPress() {
     t ? stat(Math.max(0, Math.ceil((t - now) / 86400000)), `Days to the election · ${fmtD(new Date(t))}`) : '', stat(esc(k.candidates ?? 250), k.candidatesLabel || 'Candidates on the student list'),
     ...(k.stats || []).map(x => { const [v, ...l] = String(x).split('|'); return l.length ? stat(esc(v.trim()), l.join('|').trim()) : ''; })].join('');
   const upd = [k, ...drops].map(x => tsDate(x.updatedAt)).filter(Boolean).sort((a, b) => b - a)[0];
-  const tile = (label, url, fallback) => safe(url) ? `<a class="tile" ${ext(url)}>${label} <span aria-hidden="true">↗</span></a>` : fallback ? `<a class="tile" href="${fallback}">${label}</a>` : `<span class="tile off">${label}<small>follows</small></span>`;
-  const dayRow = d => `<li><a href="#/press/${esc(d.id)}"><b>${dayTitle(d)}</b>${d.date ? ` <span class="faint">· ${esc(fmtD(new Date(d.date + 'T00:00:00')))}</span>` : ''}<span class="what">Recap, timeline and media</span></a>${resIcons(d.zipUrl, d.galleryUrl, dayTitle(d))}</li>`;
-  const latest = drops[0], lp = latest ? D.posts.filter(p => p.day === latest.day).sort((a, b) => b.at - a.at).slice(0, 3) : [];
-  const hm = x => x.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  main.innerHTML = `<section class="presskit"><div class="pk-head"><div><h1>Press Kit</h1><p class="lede">${esc(k.lede || `The last walk: Novi Sad to Belgrade, from 10 October to election day. Everything here is free to use (${SITE.license}).`)}</p></div>
+  const relHref = safe(k.pressReleaseUrl) ? ext(k.pressReleaseUrl) : 'href="#/press/release"';
+  // The same block for the announcement and for every day: eyebrow, title, lead/excerpt, resource links, download + browse.
+  const day = d => { const has = dayPosts(d).length; return `<section class="pk-block day"><p class="eyebrow">${dayTitle(d)}${d.date ? ` · ${esc(fmtD(new Date(d.date + 'T00:00:00')))}` : ''}</p>${d.title ? `<h2><a href="#/press/${esc(d.id)}">${esc(d.title)}</a></h2>` : ''}
+  <p class="lead">${esc(excerpt(d.bullets)) || '<span class="faint">The recap of the day is written in the evening.</span>'}</p>
+  <p class="pk-links">${resLink('doc', 'Full recap', '', `#/press/${esc(d.id)}`)}${resLink('play', 'Video', d.videoUrl)}${resLink('image', 'Images', d.imagesUrl, `#/press/${esc(d.id)}/media`)}${resLink('clock', `Timeline${has ? ` (${has})` : ''}`, '', `#/press/${esc(d.id)}/timeline`)}</p>
+  ${dlRow(d.zipUrl, d.galleryUrl, dayTitle(d))}</section>`; };
+  main.innerHTML = `${demoNote()}<section class="presskit"><div class="pk-head"><div><h1>Press Kit</h1><p class="lede">${esc(k.lede || `The last walk: Novi Sad to Belgrade, from 10 October to election day. Everything here is free to use (${SITE.license}).`)}</p></div>
     <p class="pk-meta"><a href="mailto:${esc(k.contactEmail || SITE.media_contact.email)}">${esc(k.contactEmail || SITE.media_contact.email)}</a>${upd ? `<br><span class="faint">Updated ${esc(fmtDT(upd))}</span>` : ''}</p></div>
   <div class="pk-stats">${stats}</div></section>
-<section class="pk-block"><h2>${esc(k.title || 'Official announcement')}</h2><div class="pk-tiles">${tile('Press release', k.pressReleaseUrl, '#/press/release')}${tile('Video', k.videoUrl)}${tile('Photo gallery', k.galleryUrl)}</div>
-  <p class="pk-actions"><span>Everything in one package</span>${resIcons(k.zipUrl, k.driveUrl, 'the announcement')}</p></section>
-${latest ? `<section class="pk-block latest"><p class="eyebrow">Latest</p><h2><a href="#/press/${esc(latest.id)}">${dayTitle(latest)}</a>${latest.date ? ` <span class="faint">· ${esc(fmtD(new Date(latest.date + 'T00:00:00')))}</span>` : ''}</h2>
-  ${latest.bullets ? `<div class="prose">${paragraphs(latest.bullets.split('\n').filter(Boolean).slice(0, 5).join('\n'))}</div>` : ''}
-  ${lp.length ? `<ol class="timeline compact">${lp.map(p => `<li><time>${esc(hm(p.at))}</time><div><h3><a href="#/post/${esc(p.id)}">${esc(p.title)}</a></h3></div></li>`).join('')}</ol>` : ''}
-  <p class="pk-actions"><a href="#/press/${esc(latest.id)}">Full recap and timeline ›</a>${resIcons(latest.zipUrl, latest.galleryUrl, dayTitle(latest))}</p></section>` : ''}
-<section class="pk-block"><h2>Day by day</h2>${drops.length ? `<ul class="pk-days">${drops.map(dayRow).join('')}</ul>` : '<p class="faint">The first daily package opens on launch day.</p>'}</section>
+<section class="pk-block ann"><p class="eyebrow">Official announcement</p><h2><a ${relHref}>${esc(k.title || 'Walk With Serbia: the last walk begins on 10 October')}</a></h2>
+  <p class="lead">${esc(k.lead || excerpt(k.intro, 320))}</p>
+  <p class="pk-links">${resLink('doc', 'Full press release', k.pressReleaseUrl, '#/press/release')}${resLink('play', 'Video', k.videoUrl)}${resLink('image', 'Images', k.galleryUrl)}</p>
+  ${dlRow(k.zipUrl, k.driveUrl, 'the announcement')}</section>
+${drops.map(day).join('') || '<section class="pk-block"><p class="faint">Day 1 opens here on the first evening of the march.</p></section>'}
 <div class="two pk-foot"><section class="pk-block"><h2>Background</h2><ul>${(k.facts || []).map(f => `<li>${esc(f)}</li>`).join('')}</ul>
   <p class="row">${safe(k.pdfUrl) ? `<a class="button small" ${ext(k.pdfUrl)}>Two years in one page (PDF)</a>` : ''} <a class="button small" href="#/map">Route and dates</a></p></section>
 <section class="pk-block"><h2>Use and contact</h2><div class="prose">${paragraphs(k.rules)}</div>
@@ -774,26 +813,27 @@ ${latest ? `<section class="pk-block latest"><p class="eyebrow">Latest</p><h2><a
 }
 function vPressRelease() {
   const k = pressKit();
-  main.innerHTML = `<section><p class="crumb"><a href="#/press">Press Kit</a> › Press release</p><h1>${esc(k.title || 'Official announcement')}</h1><div class="prose">${paragraphs(k.intro)}</div>
+  main.innerHTML = `<section><p class="crumb"><a href="#/press">Press Kit</a> › Press release</p><p class="eyebrow">Official announcement</p><h1>${esc(k.title || 'Walk With Serbia: the last walk begins on 10 October')}</h1>${k.lead ? `<p class="lead">${esc(k.lead)}</p>` : ''}<div class="prose">${paragraphs(k.intro)}</div>
   <div class="two"><div><h3>Key facts</h3><ul>${(k.facts || []).map(f => `<li>${esc(f)}</li>`).join('')}</ul></div><div><h3>Quotes ready to use</h3><ul class="quotes">${(k.quotes || []).map(q => `<li>“${esc(q)}”</li>`).join('')}</ul></div></div>
-  <p class="row">${safe(k.pdfUrl) ? `<a class="button" ${ext(k.pdfUrl)}>Two years in one page (PDF)</a>` : ''}${safe(k.visualUrl) ? ` <a class="button" ${ext(k.visualUrl)}>Key visual + logo</a>` : ''}${resIcons(k.zipUrl, k.driveUrl, 'the announcement')}</p></section>
+  <p class="row">${safe(k.pdfUrl) ? `<a class="button" ${ext(k.pdfUrl)}>Two years in one page (PDF)</a>` : ''}${safe(k.visualUrl) ? ` <a class="button" ${ext(k.visualUrl)}>Key visual + logo</a>` : ''}</p>${dlRow(k.zipUrl, k.driveUrl, 'the announcement')}</section>
 <section><h2 class="bar">Rules of use</h2><div class="prose">${paragraphs(k.rules)}</div>
 <h2 class="bar" style="margin-top:2rem">Media contact</h2><p>${esc(k.contactHours || '')}<br><a href="mailto:${esc(k.contactEmail || '')}">${esc(k.contactEmail || '')}</a>${k.contactSignal ? ` · Signal ${esc(k.contactSignal)}` : ''}</p></section>`;
 }
-function vPressDay(id, media) {
+function vPressDay(id, flag) {
   const d = D.press[id]; if (!d || id === 'kit') { main.innerHTML = '<p class="notice">This press day was not found.</p>'; return; }
-  const posts = D.posts.filter(p => p.day === d.day).sort((a, b) => a.at - b.at);   // the day's live updates, morning → evening
+  const posts = dayPosts(d);
   const TYPES = { video: 'video', image: 'photo', pdf: 'PDF', zip: 'ZIP' };
   const item = i => `<div class="press-item"><div><b>${esc(i.title)}</b><span class="meta">${[TYPES[i.type] || i.type, i.orientation, i.res, i.duration, i.music === false ? 'no music' : ''].filter(Boolean).map(esc).join(' · ')}${i.city ? ' · ' + esc(D.cities[i.city]?.name || i.city) : ''} · CC BY 4.0</span></div>${safe(i.url) ? `<a class="button small" ${ext(i.url)}>Download ↓</a>` : '<span class="faint">file not uploaded yet</span>'}</div>`;
   const hm = t => t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  const upd = p => { const c = p.city && D.cities[p.city]; return `<li><time>${esc(hm(p.at))}</time><div><h3><a href="#/post/${esc(p.id)}">${esc(p.title)}</a></h3>${c ? `<p class="meta"><a href="#/city/${esc(c.slug)}">${esc(c.name)}</a></p>` : ''}${p.text ? paragraphs(p.text) : ''}</div></li>`; };
+  const upd = p => { const c = p.city && D.cities[p.city]; return `<li><time>${esc(hm(p.at))}</time><div><h3>${p.demo ? esc(p.title) : `<a href="#/post/${esc(p.id)}">${esc(p.title)}</a>`}</h3>${c ? `<p class="meta"><a href="#/city/${esc(c.slug)}">${esc(c.name)}</a></p>` : ''}${p.text ? paragraphs(p.text) : ''}</div></li>`; };
   const thumbs = posts.map(p => { const t = thumbOf(p); return safe(t) ? `<a href="#/post/${esc(p.id)}" title="${esc(p.title)}"><img src="${esc(t)}" alt="${esc(p.title)}" loading="lazy"></a>` : ''; }).join('');
-  main.innerHTML = `<section><p class="crumb"><a href="#/press">Press Kit</a> › ${dayTitle(d)}</p><div class="pk-head"><div><h1>${dayTitle(d)}: recap</h1>${d.date ? `<p class="meta">${esc(fmtD(new Date(d.date + 'T00:00:00')))}</p>` : ''}</div>${resIcons(d.zipUrl, d.galleryUrl, dayTitle(d))}</div>
+  main.innerHTML = `${demoNote()}<section><p class="crumb"><a href="#/press">Press Kit</a> › ${dayTitle(d)}</p><p class="eyebrow">${dayTitle(d)}${d.date ? ` · ${esc(fmtD(new Date(d.date + 'T00:00:00')))}` : ''}</p><h1>${esc(d.title || dayTitle(d) + ': recap')}</h1>
+  <p class="pk-links">${resLink('play', 'Video', d.videoUrl)}${resLink('image', 'Images', d.imagesUrl, `#/press/${esc(d.id)}/media`)}${resLink('clock', 'Timeline', '', `#/press/${esc(d.id)}/timeline`)}</p>${dlRow(d.zipUrl, d.galleryUrl, dayTitle(d))}
   <div class="prose">${d.bullets ? paragraphs(d.bullets) : '<p class="faint">The recap of the day is written in the evening.</p>'}</div></section>
-<section><h2 class="bar">Timeline updates <span class="faint">· ${plural(posts.length, 'update')}</span></h2>${posts.length ? `<ol class="timeline">${posts.map(upd).join('')}</ol>` : '<p class="faint">No live updates from this day yet.</p>'}</section>
-<section id="pressMedia"><h2 class="bar">Media gallery</h2>${safe(d.zipUrl) || safe(d.galleryUrl) ? `<p class="pk-actions"><span>The whole day in one package</span>${resIcons(d.zipUrl, d.galleryUrl, dayTitle(d))}</p>` : ''}
+<section id="pressTimeline"><h2 class="bar">Timeline updates <span class="faint">· ${plural(posts.length, 'update')}</span></h2>${posts.length ? `<ol class="timeline">${posts.map(upd).join('')}</ol>` : '<p class="faint">No live updates from this day yet.</p>'}</section>
+<section id="pressMedia"><h2 class="bar">Media gallery</h2>${safe(d.imagesUrl) ? `<p class="pk-links">${resLink('image', 'All images of the day', d.imagesUrl)}</p>` : ''}
   <div class="press-list">${(d.items || []).map(item).join('')}</div>${thumbs ? `<div class="media-grid">${thumbs}</div>` : ''}${!(d.items || []).length && !thumbs && !safe(d.galleryUrl) ? '<p class="faint">Media from this day follows.</p>' : ''}</section>`;
-  if (media) setTimeout(() => { const el = document.getElementById('pressMedia'); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 70 }); }, 120);   // after the router's scroll-to-top; 70 px = sticky header
+  if (flag) setTimeout(() => { const el = document.getElementById(flag === '/timeline' ? 'pressTimeline' : 'pressMedia'); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 70 }); }, 120);   // after the router's scroll-to-top; 70 px = sticky header
 }
 
 // ── walks ──
@@ -839,7 +879,7 @@ function vWalks() {
 }
 
 // ── router ──
-const ROUTES = [[/^\/?$/, vHome, 'home'], [/^\/feed$/, vFeed, 'feed'], [/^\/map$/, vMap, 'map'], [/^\/walks$/, vWalks, 'map'], [/^\/press$/, vPress, 'press'], [/^\/press\/release$/, vPressRelease, 'press'], [/^\/press\/(day-[a-z0-9-]+)(\/media)?$/, vPressDay, 'press'], [/^\/people$/, vPeople, ''], [/^\/topics$/, vTopics, ''],
+const ROUTES = [[/^\/?$/, vHome, 'home'], [/^\/feed$/, vFeed, 'feed'], [/^\/map$/, vMap, 'map'], [/^\/walks$/, vWalks, 'map'], [/^\/press$/, vPress, 'press'], [/^\/press\/release$/, vPressRelease, 'press'], [/^\/press\/(day-[a-z0-9-]+)(\/media|\/timeline)?$/, vPressDay, 'press'], [/^\/people$/, vPeople, ''], [/^\/topics$/, vTopics, ''],
   [/^\/post\/(.+)$/, vPost, 'feed'], [/^\/city\/(.+)$/, vCity, 'map'], [/^\/walk\/(.+)$/, vWalk, 'map'], [/^\/person\/(.+)$/, vPerson, ''], [/^\/topic\/(.+)$/, vTopic, '']];
 function route() {
   const h = decodeURIComponent(location.hash.replace(/^#/, '')) || '/';
@@ -884,6 +924,7 @@ else onAuthStateChanged(auth, async user => {
 });
 async function boot() {
   if (!await load()) return;
+  if (DEMO.on) applyPressDemo();
   const tg = D.settings.telegram || SITE.telegram || '';
   $('#tgLink').href = tg ? (tg.startsWith('http') ? tg : `https://t.me/${tg.replace(/^@/, '')}`) : '#';
   if (!tg) { $('#tgLink').textContent = 'Email the team'; $('#tgLink').href = `mailto:${SITE.media_contact.email}`; $('#chat .panel p.faint').textContent = 'The Telegram line opens on launch day. Until then, write to the team by email: questions about a walk, footage to send, a request from a newsroom.'; }
