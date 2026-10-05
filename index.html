@@ -305,6 +305,21 @@ a.icon-btn:hover { filter: brightness(.9); }
 .pk-dl .icon-btn { width: 40px; height: 40px; margin-right: var(--space-4); }
 .notice.demo { border-left: 4px solid var(--brand-primary); background: var(--brand-surface-soft); padding: var(--space-3) var(--space-4); border-radius: 0; margin: 0 0 var(--space-6); }
 
+/* press days as tabs */
+.pk-tabs { display: flex; gap: var(--space-2); overflow-x: auto; padding: var(--space-1) 0 var(--space-3); margin-bottom: var(--space-4); scrollbar-width: thin; border-bottom: 2px solid var(--brand-surface-soft); }
+.pk-tabs button { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 4.6rem; padding: var(--space-2) var(--space-3); border: 0; border-radius: 10px; background: var(--brand-surface-soft); color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.pk-tabs button small { font-weight: 500; font-size: var(--fs-small); opacity: .75; }
+.pk-tabs button:hover { outline: 2px solid var(--brand-primary); }
+.pk-tabs button.on { background: var(--brand-primary); color: var(--brand-on-primary); }
+.pk-tabs button.on small { opacity: .9; }
+.pk-tabs button.today:not(.on) { box-shadow: inset 0 -3px 0 var(--brand-primary); }
+.pk-tabs button:focus-visible, #pkPanel:focus-visible { outline: 3px solid var(--brand-ink, #111); outline-offset: 2px; }
+.pk-day h2 { margin: 0 0 var(--space-2); }
+.pk-day h2 a { color: inherit; text-decoration: none; }
+.pk-day h2 a:hover { color: var(--brand-primary); }
+.pk-links small { font-weight: 500; font-size: var(--fs-small); opacity: .7; margin-left: .15em; }
+.pk-links span { display: inline-flex; align-items: center; gap: var(--space-2); }
+
 </style>
 </head>
 <body>
@@ -763,7 +778,7 @@ function applyPressDemo() {
   Object.keys(D.press).forEach(k => { if (k !== 'kit') delete D.press[k]; });
   D.press.kit = { title: 'The last walk: students set off from Novi Sad to Belgrade on 10 October', lead: 'After two years on the streets, the student movement walks from the railway station in Novi Sad to Belgrade and arrives on the eve of the snap election of 25 October. Two hundred and fifty candidates stand on the student list.', videoUrl: ex + '/announcement-video', galleryUrl: ex + '/announcement-images', zipUrl: ex + '/announcement.zip', driveUrl: ex + '/announcement-folder', ...Object.fromEntries(Object.entries(D.press.kit || {}).filter(([, v]) => v !== '' && v != null)) };   // real values win only where they are filled in
   legs.forEach(([from, to, km], i) => { const n = i + 1, date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`, id = `day-${String(n).padStart(2, '0')}`;
-    D.press[id] = { id, day: n, date: iso, title: n <= 8 ? `${from} → ${to}` : `${from}: ${to}`, videoUrl: ex + `/day-${n}-video`, imagesUrl: ex + `/day-${n}-images`, zipUrl: ex + `/day-${n}.zip`, galleryUrl: ex + `/day-${n}-folder`,
+    D.press[id] = { id, day: n, date: iso, title: n <= 8 ? `${from} → ${to}` : `${from}: ${to}`, zipUrl: ex + `/day-${n}.zip`, galleryUrl: ex + `/day-${n}-folder`,
       bullets: `${n <= 8 ? `The column left ${from} at 08:00 and reached ${to} in the late afternoon: ${km} km on foot, the ${n === 1 ? 'first' : 'next'} leg of the march to Belgrade.` : `Day ${n} was a Belgrade day (${to}): ${km} km through the city, with stops at the faculties and the assemblies.`}\nAt 11:52 the walkers stopped for sixteen minutes of silence for the victims of the Novi Sad canopy collapse.\n• About ${(3 + n % 5) * 1000 + 500} people walked today; ${2 + n % 4} towns sent delegations.\n• Solidarity walks were held in ${4 + n} cities abroad.\n• Tomorrow: ${legs[n] ? (n < 8 ? `${legs[n][0]} → ${legs[n][1]}` : legs[n][1]) : 'election day, 25 October'}.`, items: [], updatedAt: date };
     const at = (h, m) => new Date(+date + h * 3600000 + m * 60000);
     DEMO.posts[n] = [[8, 0, n <= 8 ? `The column leaves ${from}` : `Morning assembly: ${to}`], [11, 52, 'Sixteen minutes of silence'], [14, 30, n <= 8 ? `Halfway: lunch served by the people of the villages on the road` : 'Students speak with residents, door to door'], [17, 15, n <= 8 ? `Arrival in ${to}` : 'The day ends at Slavija'], [19, 30, 'Evening statement from the student list']]
@@ -780,9 +795,11 @@ const ICO = { doc: '<path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"/>', play
 const ico = k => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICO[k]}</svg>`;
 // A labelled resource link: external URL, on-site fallback, or greyed out while it is missing.
 const resLink = (icon, label, url, fallback) => safe(url) ? `<a ${ext(url)}>${ico(icon)}${label}</a>` : fallback ? `<a href="${fallback}">${ico(icon)}${label}</a>` : `<span class="off" title="Follows">${ico(icon)}${label}</span>`;
+// Video and images always exist in the package even when they are not playable on the web: link the direct URL, else the folder.
+const mediaLink = (icon, label, url, folderUrl) => safe(url) ? `<a ${ext(url)}>${ico(icon)}${label}</a>` : safe(folderUrl) ? `<a ${ext(folderUrl)} title="Opens the folder">${ico(icon)}${label}<small>in the folder</small></a>` : `<span>${ico(icon)}${label}<small>in the folder</small></span>`;
 const dlRow = (zipUrl, folderUrl, what) => `<p class="pk-dl"><span class="lbl">Download</span>${safe(zipUrl) ? `<a class="icon-btn" ${ext(zipUrl)} aria-label="Download ${esc(what)} (ZIP)" title="Download ZIP">${ICON.zip}</a>` : `<span class="icon-btn off" title="ZIP follows" aria-label="ZIP not available yet">${ICON.zip}</span>`}<span class="lbl">Browse</span>${safe(folderUrl) ? `<a class="icon-btn" ${ext(folderUrl)} aria-label="Browse ${esc(what)} folder" title="Browse folder">${ICON.folder}</a>` : `<span class="icon-btn off" title="Folder follows" aria-label="Folder not available yet">${ICON.folder}</span>`}</p>`;
 const demoNote = () => DEMO.on ? '<p class="notice demo">Simulated content: fifteen example press days, nothing here is real or saved. Remove <code>?demo=press</code> from the address to see the live page.</p>' : '';
-function vPress() {
+function vPress(sel) {
   const k = pressKit(), drops = pressDrops(), now = Date.now();
   // key numbers about the protest to date (all editable in the CMS → Press kit)
   const startD = new Date((k.protestStart || '2024-11-01') + 'T00:00:00'), t = electionInstant();
@@ -793,24 +810,36 @@ function vPress() {
   const upd = [k, ...drops].map(x => tsDate(x.updatedAt)).filter(Boolean).sort((a, b) => b - a)[0];
   const relHref = safe(k.pressReleaseUrl) ? ext(k.pressReleaseUrl) : 'href="#/press/release"';
   // The same block for the announcement and for every day: eyebrow, title, lead/excerpt, resource links, download + browse.
-  const day = d => { const has = dayPosts(d).length; return `<section class="pk-block day"><p class="eyebrow">${dayTitle(d)}${d.date ? ` · ${esc(fmtD(new Date(d.date + 'T00:00:00')))}` : ''}</p>${d.title ? `<h2><a href="#/press/${esc(d.id)}">${esc(d.title)}</a></h2>` : ''}
+  const day = d => { const has = dayPosts(d).length; return `<section class="pk-day"><p class="eyebrow">${dayTitle(d)}${d.date ? ` · ${esc(fmtD(new Date(d.date + 'T00:00:00')))}` : ''}</p>${d.title ? `<h2><a href="#/press/${esc(d.id)}">${esc(d.title)}</a></h2>` : ''}
   <p class="lead">${esc(excerpt(d.bullets)) || '<span class="faint">The recap of the day is written in the evening.</span>'}</p>
-  <p class="pk-links">${resLink('doc', 'Full recap', '', `#/press/${esc(d.id)}`)}${resLink('play', 'Video', d.videoUrl)}${resLink('image', 'Images', d.imagesUrl, `#/press/${esc(d.id)}/media`)}${resLink('clock', `Timeline${has ? ` (${has})` : ''}`, '', `#/press/${esc(d.id)}/timeline`)}</p>
+  <p class="pk-links">${resLink('doc', 'Full recap', '', `#/press/${esc(d.id)}`)}${mediaLink('play', 'Video', d.videoUrl, d.galleryUrl)}${mediaLink('image', 'Images', d.imagesUrl, d.galleryUrl)}${resLink('clock', `Timeline${has ? ` (${has})` : ''}`, '', `#/press/${esc(d.id)}/timeline`)}</p>
   ${dlRow(d.zipUrl, d.galleryUrl, dayTitle(d))}</section>`; };
+  // Days are tabs (Day 1 … Day N); the current march day is the active one, else the latest day that exists.
+  const days = [...drops].sort((a, b) => a.day - b.day), todayN = dayOf(new Date());
+  const cur = days.find(d => d.day === +sel) || days.find(d => d.day === todayN) || days[days.length - 1];
+  const tabs = days.length ? `<section class="pk-block"><h2>Day by day</h2><div class="pk-tabs" role="tablist" aria-label="Press days">${days.map(d => `<button type="button" role="tab" id="pkt-${d.day}" data-day="${d.day}" aria-controls="pkPanel" aria-selected="${d === cur}" tabindex="${d === cur ? 0 : -1}" class="${d === cur ? 'on' : ''}${d.day === todayN ? ' today' : ''}">Day ${d.day}${d.date ? `<small>${esc(new Date(d.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</small>` : ''}</button>`).join('')}</div>
+  <div id="pkPanel" role="tabpanel" aria-labelledby="pkt-${cur.day}" tabindex="0">${day(cur)}</div></section>` : '<section class="pk-block"><h2>Day by day</h2><p class="faint">Day 1 opens here on the first evening of the march.</p></section>';
   main.innerHTML = `${demoNote()}<section class="presskit"><div class="pk-head"><div><h1>Press Kit</h1><p class="lede">${esc(k.lede || `The last walk: Novi Sad to Belgrade, from 10 October to election day. Everything here is free to use (${SITE.license}).`)}</p></div>
     <p class="pk-meta"><a href="mailto:${esc(k.contactEmail || SITE.media_contact.email)}">${esc(k.contactEmail || SITE.media_contact.email)}</a>${upd ? `<br><span class="faint">Updated ${esc(fmtDT(upd))}</span>` : ''}</p></div>
   <div class="pk-stats">${stats}</div></section>
 <section class="pk-block ann"><p class="eyebrow">Official announcement</p><h2><a ${relHref}>${esc(k.title || 'Walk With Serbia: the last walk begins on 10 October')}</a></h2>
   <p class="lead">${esc(k.lead || excerpt(k.intro, 320))}</p>
-  <p class="pk-links">${resLink('doc', 'Full press release', k.pressReleaseUrl, '#/press/release')}${resLink('play', 'Video', k.videoUrl)}${resLink('image', 'Images', k.galleryUrl)}</p>
+  <p class="pk-links">${resLink('doc', 'Full press release', k.pressReleaseUrl, '#/press/release')}${mediaLink('play', 'Video', k.videoUrl, k.driveUrl)}${mediaLink('image', 'Images', k.galleryUrl, k.driveUrl)}</p>
   ${dlRow(k.zipUrl, k.driveUrl, 'the announcement')}</section>
-${drops.map(day).join('') || '<section class="pk-block"><p class="faint">Day 1 opens here on the first evening of the march.</p></section>'}
+${tabs}
 <div class="two pk-foot"><section class="pk-block"><h2>Background</h2><ul>${(k.facts || []).map(f => `<li>${esc(f)}</li>`).join('')}</ul>
   <p class="row">${safe(k.pdfUrl) ? `<a class="button small" ${ext(k.pdfUrl)}>Two years in one page (PDF)</a>` : ''} <a class="button small" href="#/map">Route and dates</a></p></section>
 <section class="pk-block"><h2>Use and contact</h2><div class="prose">${paragraphs(k.rules)}</div>
   <p>${esc(k.contactHours || '')}<br><a href="mailto:${esc(k.contactEmail || '')}">${esc(k.contactEmail || '')}</a>${k.contactSignal ? ` · Signal ${esc(k.contactSignal)}` : ''}</p>
   ${safe(k.visualUrl) ? `<p class="row"><a class="button small" ${ext(k.visualUrl)}>Key visual + logo</a></p>` : ''}</section></div>`;
+  const tl = main.querySelector('.pk-tabs'); if (!tl) return;
+  const pick = (n, focus) => { const d = days.find(x => x.day === n); if (!d) return; tl.querySelectorAll('[role=tab]').forEach(b => { const on = +b.dataset.day === n; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; if (on) { b.scrollIntoView({ block: 'nearest', inline: 'center' }); if (focus) b.focus(); } });
+    const pn = document.getElementById('pkPanel'); pn.innerHTML = day(d); pn.setAttribute('aria-labelledby', 'pkt-' + n); history.replaceState(null, '', `#/press/${n}`); };   // deep link without re-routing (no scroll jump)
+  tl.onclick = e => { const b = e.target.closest('[role=tab]'); if (b) pick(+b.dataset.day); };
+  tl.onkeydown = e => { const i = days.findIndex(x => x.day === +tl.querySelector('.on')?.dataset.day); const to = e.key === 'ArrowRight' ? days[i + 1] : e.key === 'ArrowLeft' ? days[i - 1] : e.key === 'Home' ? days[0] : e.key === 'End' ? days[days.length - 1] : null; if (to) { e.preventDefault(); pick(to.day, true); } };
+  tl.querySelector('.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
+
 function vPressRelease() {
   const k = pressKit();
   main.innerHTML = `<section><p class="crumb"><a href="#/press">Press Kit</a> › Press release</p><p class="eyebrow">Official announcement</p><h1>${esc(k.title || 'Walk With Serbia: the last walk begins on 10 October')}</h1>${k.lead ? `<p class="lead">${esc(k.lead)}</p>` : ''}<div class="prose">${paragraphs(k.intro)}</div>
@@ -827,8 +856,8 @@ function vPressDay(id, flag) {
   const hm = t => t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const upd = p => { const c = p.city && D.cities[p.city]; return `<li><time>${esc(hm(p.at))}</time><div><h3>${p.demo ? esc(p.title) : `<a href="#/post/${esc(p.id)}">${esc(p.title)}</a>`}</h3>${c ? `<p class="meta"><a href="#/city/${esc(c.slug)}">${esc(c.name)}</a></p>` : ''}${p.text ? paragraphs(p.text) : ''}</div></li>`; };
   const thumbs = posts.map(p => { const t = thumbOf(p); return safe(t) ? `<a href="#/post/${esc(p.id)}" title="${esc(p.title)}"><img src="${esc(t)}" alt="${esc(p.title)}" loading="lazy"></a>` : ''; }).join('');
-  main.innerHTML = `${demoNote()}<section><p class="crumb"><a href="#/press">Press Kit</a> › ${dayTitle(d)}</p><p class="eyebrow">${dayTitle(d)}${d.date ? ` · ${esc(fmtD(new Date(d.date + 'T00:00:00')))}` : ''}</p><h1>${esc(d.title || dayTitle(d) + ': recap')}</h1>
-  <p class="pk-links">${resLink('play', 'Video', d.videoUrl)}${resLink('image', 'Images', d.imagesUrl, `#/press/${esc(d.id)}/media`)}${resLink('clock', 'Timeline', '', `#/press/${esc(d.id)}/timeline`)}</p>${dlRow(d.zipUrl, d.galleryUrl, dayTitle(d))}
+  main.innerHTML = `${demoNote()}<section><p class="crumb"><a href="#/press/${d.day}">Press Kit</a> › ${dayTitle(d)}</p><p class="eyebrow">${dayTitle(d)}${d.date ? ` · ${esc(fmtD(new Date(d.date + 'T00:00:00')))}` : ''}</p><h1>${esc(d.title || dayTitle(d) + ': recap')}</h1>
+  <p class="pk-links">${mediaLink('play', 'Video', d.videoUrl, d.galleryUrl)}${mediaLink('image', 'Images', d.imagesUrl, d.galleryUrl)}${resLink('clock', 'Timeline', '', `#/press/${esc(d.id)}/timeline`)}</p>${dlRow(d.zipUrl, d.galleryUrl, dayTitle(d))}
   <div class="prose">${d.bullets ? paragraphs(d.bullets) : '<p class="faint">The recap of the day is written in the evening.</p>'}</div></section>
 <section id="pressTimeline"><h2 class="bar">Timeline updates <span class="faint">· ${plural(posts.length, 'update')}</span></h2>${posts.length ? `<ol class="timeline">${posts.map(upd).join('')}</ol>` : '<p class="faint">No live updates from this day yet.</p>'}</section>
 <section id="pressMedia"><h2 class="bar">Media gallery</h2>${safe(d.imagesUrl) ? `<p class="pk-links">${resLink('image', 'All images of the day', d.imagesUrl)}</p>` : ''}
@@ -879,7 +908,7 @@ function vWalks() {
 }
 
 // ── router ──
-const ROUTES = [[/^\/?$/, vHome, 'home'], [/^\/feed$/, vFeed, 'feed'], [/^\/map$/, vMap, 'map'], [/^\/walks$/, vWalks, 'map'], [/^\/press$/, vPress, 'press'], [/^\/press\/release$/, vPressRelease, 'press'], [/^\/press\/(day-[a-z0-9-]+)(\/media|\/timeline)?$/, vPressDay, 'press'], [/^\/people$/, vPeople, ''], [/^\/topics$/, vTopics, ''],
+const ROUTES = [[/^\/?$/, vHome, 'home'], [/^\/feed$/, vFeed, 'feed'], [/^\/map$/, vMap, 'map'], [/^\/walks$/, vWalks, 'map'], [/^\/press$/, vPress, 'press'], [/^\/press\/(\d+)$/, vPress, 'press'], [/^\/press\/release$/, vPressRelease, 'press'], [/^\/press\/(day-[a-z0-9-]+)(\/media|\/timeline)?$/, vPressDay, 'press'], [/^\/people$/, vPeople, ''], [/^\/topics$/, vTopics, ''],
   [/^\/post\/(.+)$/, vPost, 'feed'], [/^\/city\/(.+)$/, vCity, 'map'], [/^\/walk\/(.+)$/, vWalk, 'map'], [/^\/person\/(.+)$/, vPerson, ''], [/^\/topic\/(.+)$/, vTopic, '']];
 function route() {
   const h = decodeURIComponent(location.hash.replace(/^#/, '')) || '/';
